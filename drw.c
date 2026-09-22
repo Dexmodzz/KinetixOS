@@ -70,7 +70,8 @@ drw_resize(Drw *drw, unsigned int w, unsigned int h)
 {
 	if (!drw)
 		return;
-
+	if (w == 0) w = 1;
+	if (h == 0) h = 1;
 	drw->w = w;
 	drw->h = h;
 	if (drw->picture)
