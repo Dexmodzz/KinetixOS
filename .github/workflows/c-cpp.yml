@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Desktop smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    container: fedora:44
+    defaults:
+      run:
+        shell: bash
+    env:
+      DWM_TEST_TMP_ROOT: /var/tmp/dwm-ci
+
+    steps:
+      - name: Install checkout dependency
+        run: dnf install -y --setopt=install_weak_deps=False git-core
+
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Install build and smoke dependencies
+        run: |
+          source scripts/dwm-packages.sh
+          mapfile -t packages < <(dwm_packages fedora ci-smoke)
+          dnf install -y --setopt=install_weak_deps=False "${packages[@]}"
+
+      - name: Build dwm
+        run: |
+          scripts/run-tests make clean all
+          chmod 0755 dwm
+
+      - name: Launch desktop and check basic interaction
+        timeout-minutes: 2
+        run: |
+          install -d -m 0700 -o nobody -g nobody /home/dwm-ci /run/dwm-ci "$DWM_TEST_TMP_ROOT"
+          runuser -u nobody -- env HOME=/home/dwm-ci XDG_RUNTIME_DIR=/run/dwm-ci \
+            scripts/run-tests timeout --kill-after=5s 90s python3 tests/test-desktop-smoke.py

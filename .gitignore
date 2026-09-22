@@ -1,0 +1,40 @@
+# binaries
+/dwm
+
+# User config (created from config.def.h, not tracked)
+config.h
+
+# Patch Fail
+*.rej
+*.orig
+
+# Object Files
+*.o
+.env
+nohup.out
+.DS_STORE
+livemedia.log
+program.log
+*.iso
+
+# Local editor settings that may contain machine-specific absolute paths
+.zed/settings.json
+
+/release/**
+/release
+
+# Local Vicinae AppImage extraction/staging tree
+/vicinae/
+
+# Local CI validation virtualenv
+/.ci-pykickstart/
+
+# Generated Astro documentation output and local dependencies.
+/docs/.astro/
+/docs/dist/
+/docs/node_modules/
+
+# Local Serena project metadata/cache
+/.serena/
+__pycache__/
+*.pyc

@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=KinetixOS
+Comment=Dynamic window manager (KinetixOS)
+Exec=@PREFIX@/bin/dwm
+Icon=dwm
+Type=Application

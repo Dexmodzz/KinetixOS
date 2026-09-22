@@ -1,0 +1,160 @@
+#!/bin/sh
+# Keep a connected external monitor as the only, primary display regardless of
+# the lid state, and restore the laptop panel when the monitor is unplugged.
+#
+#   dwm-hdmi-watch          watch DRM hotplug events for this X session
+#   dwm-hdmi-watch --apply  apply the layout for the current outputs and exit
+#
+# The watcher is bound to the X server that started it: it exits when that
+# server goes away, so every new session starts a fresh watcher that applies
+# the layout immediately instead of inheriting stale state.
+set -eu
+
+settle_seconds=${DWM_HDMI_SETTLE_SECONDS:-1}
+
+log() {
+	printf 'dwm-hdmi-watch: %s\n' "$*" >&2
+}
+
+usage() {
+	printf 'Usage: dwm-hdmi-watch [--apply]\n' >&2
+	exit 2
+}
+
+is_internal() {
+	case $1 in
+	eDP* | LVDS* | DSI*) return 0 ;;
+	esac
+	return 1
+}
+
+# Print "<output> <connected|disconnected>" for every output.
+output_states() {
+	xrandr --query | awk '$2 == "connected" || $2 == "disconnected" { print $1, $2 }'
+}
+
+# Print the first connected external output, if any.
+external_output() {
+	printf '%s\n' "$1" | while read -r name state; do
+		is_internal "$name" && continue
+		[ "$state" = connected ] || continue
+		printf '%s\n' "$name"
+		break
+	done
+}
+
+internal_output() {
+	printf '%s\n' "$1" | while read -r name _; do
+		is_internal "$name" || continue
+		printf '%s\n' "$name"
+		break
+	done
+}
+
+# Print the layout key for the current outputs: the external name or "none".
+layout_key() {
+	states=$(output_states) || return 1
+	external=$(external_output "$states")
+	printf '%s\n' "${external:-none}"
+}
+
+apply_layout() {
+	states=$(output_states) || return 1
+	[ -n "$states" ] || return 1
+	external=$(external_output "$states")
+	internal=$(internal_output "$states")
+	if [ -n "$external" ]; then
+		set -- --output "$external" --auto --primary
+		[ -z "$internal" ] || set -- "$@" --output "$internal" --off
+		log "external monitor $external is primary"
+	elif [ -n "$internal" ]; then
+		set -- --output "$internal" --auto --primary
+		for name in $(printf '%s\n' "$states" | awk '{ print $1 }'); do
+			is_internal "$name" || set -- "$@" --output "$name" --off
+		done
+		log "laptop panel $internal is primary"
+	else
+		return 0
+	fi
+	xrandr "$@"
+}
+
+watch_hotplug() {
+	for cmd in flock mkfifo udevadm xprop; do
+		command -v "$cmd" >/dev/null 2>&1 || {
+			log "$cmd not found"
+			exit 1
+		}
+	done
+	runtime_dir=${XDG_RUNTIME_DIR:-/tmp}/kinetixos
+	mkdir -p "$runtime_dir"
+	display_id=$(printf '%s' "${DISPLAY:?DISPLAY is not set}" | tr -c 'A-Za-z0-9' _)
+	exec 9>"$runtime_dir/hdmi-watch.$display_id.lock"
+	if ! flock -n 9; then
+		log "already running for DISPLAY=$DISPLAY"
+		exit 0
+	fi
+
+	fifo=$runtime_dir/hdmi-watch.$display_id.$$.fifo
+	rm -f "$fifo"
+	mkfifo "$fifo"
+	udev_pid=
+	loop_pid=
+	xprop_pid=
+	cleanup() {
+		trap - EXIT HUP INT TERM
+		for pid in $xprop_pid $loop_pid $udev_pid; do
+			kill "$pid" 2>/dev/null || true
+		done
+		rm -f "$fifo"
+	}
+	trap cleanup EXIT
+	trap 'exit 0' HUP INT TERM
+
+	udevadm monitor --udev --subsystem-match=drm --property \
+		>"$fifo" 2>/dev/null 9>&- &
+	udev_pid=$!
+	(
+		# Always apply once: a new session must never inherit stale state.
+		apply_layout || log 'could not apply the display layout'
+		last=$(layout_key 2>/dev/null || printf 'unknown\n')
+		while IFS= read -r line; do
+			[ "$line" = ACTION=change ] || continue
+			# Coalesce bursts of events from one hotplug into a single switch,
+			# and skip events caused by our own xrandr changes.
+			sleep "$settle_seconds"
+			key=$(layout_key 2>/dev/null) || continue
+			[ "$key" != "$last" ] || continue
+			if apply_layout; then
+				last=$key
+			else
+				log 'could not apply the display layout'
+			fi
+		done
+	) <"$fifo" 9>&- &
+	loop_pid=$!
+
+	# xprop -spy exits when this X server shuts down, ending the watcher. The
+	# atom is never set, so xprop sleeps instead of waking on root changes.
+	# Waiting in the background keeps the watcher responsive to signals.
+	xprop -root -spy _KINETIXOS_HDMI_WATCH >/dev/null 2>&1 9>&- &
+	xprop_pid=$!
+	wait "$xprop_pid" || true
+}
+
+case ${1:-} in
+'') ;;
+--apply) ;;
+*) usage ;;
+esac
+[ "$#" -le 1 ] || usage
+command -v xrandr >/dev/null 2>&1 || {
+	log 'xrandr not found'
+	exit 1
+}
+
+if [ "${1:-}" = --apply ]; then
+	apply_layout
+else
+	watch_hotplug
+fi
