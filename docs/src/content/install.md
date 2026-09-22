@@ -76,8 +76,8 @@ Use `core` for the required build/X11/session packages, Alacritty, and media app
 such as file-manager integration, keyring login integration, wallpapers, and
 display-manager setup. On x86_64 Fedora, `full` can also install Steam,
 Gamescope, GameMode, and MangoHud after repository approval.
-The installer separately asks before enabling the `christitustech/copr-fedora`
-COPR for patched Gamescope and RPM Fusion nonfree for Steam. Declining skips the
+The installer separately asks before enabling RPM Fusion nonfree for Steam;
+Gamescope comes from the official Fedora repositories. Declining skips the
 gaming subset without affecting other full-profile extras.
 
 ### 2. Clone and Build
@@ -175,8 +175,8 @@ Installer package profiles are selected with `DWM_INSTALL_PROFILE`:
   wallpapers, and display-manager setup. x86_64 Fedora full installs also
   include Steam, Gamescope, and 64-bit and 32-bit GameMode and MangoHud support
   after separate repository approval.
-  The installer enables the `christitustech/copr-fedora` COPR for Gamescope and
-  RPM Fusion nonfree for Steam, then adds the invoking user to the `gamemode`
+  The installer enables RPM Fusion nonfree for Steam, installs Gamescope from
+  Fedora, then adds the invoking user to the `gamemode`
   group; log out and back in before using its privileged tuning helpers.
 
 The default is `full` to preserve the historical automated installer behavior.

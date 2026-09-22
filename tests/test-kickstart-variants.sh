@@ -27,7 +27,6 @@ required_repos=(
 	'repo --name="rpmfusion-nonfree-tainted"'
 	'repo --name="brave-browser"'
 	'repo --name="mwt-packages"'
-	'repo --name="christitustech-copr-fedora"'
 )
 
 required_packages=(
@@ -178,13 +177,9 @@ SH
 	fi
 	# shellcheck disable=SC2016 # Match the literal deferred expansion in Kickstart.
 	grep -Fq 'export DBUS_SYSTEM_BUS_ADDRESS=\$DBUS_SESSION_BUS_ADDRESS; exec ./install.sh' "$ks"
-	grep -Fq '%include /tmp/kinetixos-gaming-repo' "$ks"
 	grep -Fq '%include /tmp/kinetixos-gaming-packages' "$ks"
-	# shellcheck disable=SC2016
-	grep -Fq 'fedora-$releasever-$basearch/' "$ks"
-	# shellcheck disable=SC2016
-	if grep -Fq 'fedora-$releasever-x86_64/' "$ks"; then
-		printf 'COPR repository is hardcoded to x86_64 outside architecture expansion: %s\n' "$ks" >&2
+	if grep -Fqi 'copr' "$ks"; then
+		printf 'Kickstart must not enable a COPR repository: %s\n' "$ks" >&2
 		exit 1
 	fi
 	# shellcheck disable=SC2016

@@ -132,9 +132,9 @@ scripts/build-dwm-fedora-installer-iso.sh \
 ```
 
 Both Kickstart profiles share the Fedora, RPM Fusion, Brave, and MWT repository
-declarations used by this project. On x86_64, both also enable the
-`christitustech/copr-fedora` repository; other architectures omit that COPR and
-its x86-only gaming packages. The ISO builder selects the matching standard or
+declarations used by this project. On x86_64, both also install the gaming
+packages, with Gamescope from the official Fedora repositories; other
+architectures omit those x86-only gaming packages. The ISO builder selects the matching standard or
 NVIDIA profile. The NVIDIA profile additionally installs RPM Fusion NVIDIA
 driver packages, blacklists Nouveau, and sets NVIDIA DRM modesetting for first
 boot.

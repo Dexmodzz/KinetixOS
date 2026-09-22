@@ -33,3 +33,7 @@ versions from `config.mk`.
   `dwm-titus` installation migrates those directories and managed system files
   once, preserving personal configuration.
 - Wallpapers are downloaded from `github.com/Dexmodzz/my-background`.
+- Install Gamescope from the official Fedora repositories instead of a COPR.
+  Fedora 44 ships Gamescope 3.16.29, which includes the upstream SDL shutdown
+  fix (ValveSoftware/gamescope#2246); the gaming profile now only enables RPM
+  Fusion nonfree for Steam.

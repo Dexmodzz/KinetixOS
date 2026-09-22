@@ -27,7 +27,7 @@ Options:
   --install-herdr        Install verified Herdr as an optional workspace.
   --skip-herdr           Do not install Herdr.
   --enable-fedora-gaming-repos
-                         Approve the Gamescope COPR and RPM Fusion nonfree.
+                         Approve RPM Fusion nonfree for Steam.
   --dry-run              Print the resolved plan and exit before changes.
   -h, --help             Show this help.
 EOF
@@ -54,7 +54,6 @@ MESLO_SHA256="13b502ac8c2bd9d3161018064560e23cd42b175bb730780a270975265a19ad57"
 NORDIC_THEME_URL="https://github.com/EliverLara/Nordic.git"
 NORDIC_THEME_REF="master"
 ARCH="$(uname -m)"
-FEDORA_GAMING_COPR="christitustech/copr-fedora"
 INSTALL_PROFILE="${DWM_INSTALL_PROFILE:-full}"
 HERDR_INSTALL_MODE="${DWM_INSTALL_HERDR:-false}"
 NON_INTERACTIVE=false
@@ -189,12 +188,11 @@ confirm_fedora_gaming_repositories() {
 	fi
 	if [[ $NON_INTERACTIVE == true ]]; then
 		warn "Skipping Fedora gaming packages because third-party repositories were not approved."
-		warn "Re-run with --enable-fedora-gaming-repos to approve the Gamescope COPR and RPM Fusion nonfree."
+		warn "Re-run with --enable-fedora-gaming-repos to approve RPM Fusion nonfree."
 		return
 	fi
 
-	printf 'Enable the %s COPR and RPM Fusion nonfree for Fedora gaming packages? [y/N] ' \
-		"$FEDORA_GAMING_COPR"
+	printf 'Enable RPM Fusion nonfree for Fedora gaming packages? [y/N] '
 	read -r answer
 	case "$answer" in
 	y | Y | yes | YES)
@@ -208,7 +206,6 @@ confirm_fedora_gaming_repositories() {
 
 configure_fedora_gaming_repositories() {
 	local fedora_release
-	local plugin_package
 	local rpmfusion_release_url
 
 	if [[ $DISTRO_ID != "fedora" || $INSTALL_PROFILE != "full" || $ARCH != "x86_64" ]]; then
@@ -216,19 +213,6 @@ configure_fedora_gaming_repositories() {
 	fi
 	if [[ $FEDORA_GAMING_REPOS_APPROVED != true ]]; then
 		return 1
-	fi
-
-	if ! dnf copr --help &>/dev/null; then
-		info "Installing the DNF COPR plugin..."
-		for plugin_package in dnf5-plugins dnf-plugins-core; do
-			if install_packages "$plugin_package"; then
-				break
-			fi
-		done
-		if ! dnf copr --help &>/dev/null; then
-			warn "Could not install a working DNF COPR plugin; skipping Fedora gaming packages."
-			return 1
-		fi
 	fi
 
 	if ! command -v rpm &>/dev/null; then
@@ -246,12 +230,6 @@ configure_fedora_gaming_repositories() {
 	info "Enabling RPM Fusion nonfree for Steam..."
 	if ! sudo dnf install -y "$rpmfusion_release_url"; then
 		warn "Could not enable RPM Fusion nonfree; skipping Fedora gaming packages."
-		return 1
-	fi
-
-	info "Enabling the $FEDORA_GAMING_COPR COPR for the patched Gamescope package..."
-	if ! sudo dnf copr enable -y "$FEDORA_GAMING_COPR"; then
-		warn "Could not enable $FEDORA_GAMING_COPR; skipping Fedora gaming packages."
 		return 1
 	fi
 }

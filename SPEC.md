@@ -216,17 +216,17 @@ The supported installation flow must:
     configuration through an isolated managed fragment and backups. When no
     X11 session is available, print the deferred setup command instead.
 
-The existing-system installer may enable RPM Fusion nonfree and the
-`christitustech/copr-fedora` COPR only for the explicitly requested gaming
-profile. Interactive runs require a direct confirmation; non-interactive runs
+The existing-system installer may enable RPM Fusion nonfree only for the
+explicitly requested gaming profile. Gamescope comes from the official Fedora
+repositories, which carry the upstream SDL shutdown fix. Interactive runs require a direct confirmation; non-interactive runs
 require the explicit `--enable-fedora-gaming-repos` approval flag. Recommended
 and full profiles may also add the official Flathub remote for the target user
 and install Gear Lever (`it.mijorus.gearlever`) as the default AppImage manager.
 It must not enable any other third-party repository.
 
 The Fedora Kickstart image profiles separately predeclare the four image
-repository groups required by that product: RPM Fusion, Brave Browser, MWT
-Packages, and `christitustech/copr-fedora`. Their inclusion is validated as
+repository groups required by that product: Fedora, RPM Fusion, Brave Browser,
+and MWT Packages. They must not enable a COPR repository. Their inclusion is validated as
 part of the reviewed ISO profile rather than inferred from existing-system
 installer approval.
 
