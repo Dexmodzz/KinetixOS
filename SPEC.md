@@ -35,7 +35,8 @@ distributions are outside the supported product and validation contract.
 - Pixel-identical behavior across every theme, driver, display manager, or
   third-party desktop utility.
 - Automatic installation of proprietary GPU drivers outside the explicitly
-  selected Fedora NVIDIA image.
+  selected Fedora NVIDIA image. The existing-system installer may install them
+  only after the explicit opt-in described in Section 5.
 - Automatic bootloader, Plymouth, firewall, or kernel changes outside a
   dedicated image flow that documents and validates them.
 - Turning the Settings frontend into a general-purpose root shell, service
@@ -217,11 +218,21 @@ The supported installation flow must:
     X11 session is available, print the deferred setup command instead.
 
 The existing-system installer may enable RPM Fusion nonfree only for the
-explicitly requested gaming profile. Gamescope comes from the official Fedora
+explicitly requested gaming profile or the approved NVIDIA driver described
+below. Gamescope comes from the official Fedora
 repositories, which carry the upstream SDL shutdown fix. Interactive runs require a direct confirmation; non-interactive runs
 require the explicit `--enable-fedora-gaming-repos` approval flag. Recommended
 and full profiles may also add the official Flathub remote for the target user
 and install Gear Lever (`it.mijorus.gearlever`) as the default AppImage manager.
+When an x86_64 NVIDIA GPU is detected and `akmod-nvidia` is not installed,
+the installer may offer the proprietary RPM Fusion NVIDIA driver from the
+shared `nvidia` package capability. The interactive prompt defaults to no;
+non-interactive runs require `--install-nvidia` or `DWM_INSTALL_NVIDIA=true`.
+Only that approval may enable RPM Fusion free and nonfree for the driver,
+install the packages, and build the akmods module for the running kernel. The
+installer must disclose that the RPM Fusion driver package changes kernel
+arguments to disable Nouveau, must not enroll Secure Boot keys, and must report
+the required reboot.
 It must not enable any other third-party repository.
 
 The Fedora Kickstart image profiles separately predeclare the four image

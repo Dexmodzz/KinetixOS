@@ -6,6 +6,12 @@ versions from `config.mk`.
 
 ## [Unreleased]
 
+### Added
+
+- `install.sh` offers the proprietary NVIDIA driver (`akmod-nvidia` from RPM
+  Fusion) when it detects an NVIDIA GPU. The prompt defaults to no; use
+  `--install-nvidia` or `--skip-nvidia` for unattended installs.
+
 ## [0.1.0]
 
 ### Added
