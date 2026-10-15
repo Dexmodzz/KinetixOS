@@ -227,6 +227,18 @@ fi
 grep -Fq 'akmod-nvidia' "$nvidia_ks"
 grep -Fq 'xorg-x11-drv-nvidia' "$nvidia_ks"
 grep -Fq 'xorg-x11-drv-nvidia-cuda' "$nvidia_ks"
+# The NVIDIA image and the opt-in installer driver share one package map.
+while IFS= read -r package; do
+	grep -Fxq "$package" "$nvidia_ks"
+	if grep -Fxq "$package" "$standard_ks"; then
+		printf 'NVIDIA driver package leaked into the standard Kickstart: %s\n' "$package" >&2
+		exit 1
+	fi
+	if ARCH=x86_64 dwm_packages fedora full | grep -Fx "$package" >/dev/null; then
+		printf 'NVIDIA driver package leaked into the full profile: %s\n' "$package" >&2
+		exit 1
+	fi
+done < <(dwm_packages fedora nvidia)
 grep -Fq 'options nvidia-drm modeset=1 fbdev=1' "$nvidia_ks"
 grep -Fq 'rd.driver.blacklist=nouveau modprobe.blacklist=nouveau nvidia-drm.modeset=1' "$nvidia_ks"
 
