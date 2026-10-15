@@ -28,6 +28,9 @@ Options:
   --skip-herdr           Do not install Herdr.
   --enable-fedora-gaming-repos
                          Approve RPM Fusion nonfree for Steam.
+  --install-nvidia       Approve the proprietary NVIDIA akmod driver from
+                         RPM Fusion when an NVIDIA GPU is detected.
+  --skip-nvidia          Do not install or offer the NVIDIA driver.
   --dry-run              Print the resolved plan and exit before changes.
   -h, --help             Show this help.
 EOF
@@ -56,6 +59,8 @@ NORDIC_THEME_REF="master"
 ARCH="$(uname -m)"
 INSTALL_PROFILE="${DWM_INSTALL_PROFILE:-full}"
 HERDR_INSTALL_MODE="${DWM_INSTALL_HERDR:-false}"
+NVIDIA_INSTALL_MODE="${DWM_INSTALL_NVIDIA:-auto}"
+NVIDIA_DRIVER_APPROVED=false
 NON_INTERACTIVE=false
 ASSUME_YES=false
 FEDORA_GAMING_REPOS_APPROVED=false
@@ -94,6 +99,14 @@ while (($# > 0)); do
 		;;
 	--enable-fedora-gaming-repos)
 		FEDORA_GAMING_REPOS_APPROVED=true
+		shift
+		;;
+	--install-nvidia)
+		NVIDIA_INSTALL_MODE=true
+		shift
+		;;
+	--skip-nvidia)
+		NVIDIA_INSTALL_MODE=false
 		shift
 		;;
 	--dry-run)
@@ -138,6 +151,21 @@ auto)
 	;;
 *)
 	err "Unsupported DWM_INSTALL_HERDR: $HERDR_INSTALL_MODE"
+	err "Supported values: auto, true, false"
+	exit 1
+	;;
+esac
+
+case "$NVIDIA_INSTALL_MODE" in
+auto) ;;
+1 | true | yes)
+	NVIDIA_INSTALL_MODE=true
+	;;
+0 | false | no)
+	NVIDIA_INSTALL_MODE=false
+	;;
+*)
+	err "Unsupported DWM_INSTALL_NVIDIA: $NVIDIA_INSTALL_MODE"
 	err "Supported values: auto, true, false"
 	exit 1
 	;;
@@ -204,10 +232,51 @@ confirm_fedora_gaming_repositories() {
 	esac
 }
 
-configure_fedora_gaming_repositories() {
+fedora_numeric_release() {
 	local fedora_release
-	local rpmfusion_release_url
 
+	if ! command -v rpm &>/dev/null; then
+		warn "rpm is unavailable; cannot determine the Fedora release for RPM Fusion." >&2
+		return 1
+	fi
+	fedora_release=$(rpm -E '%fedora')
+	case "$fedora_release" in
+	'' | *[!0-9]*)
+		warn "Could not determine the numeric Fedora release for RPM Fusion." >&2
+		return 1
+		;;
+	esac
+	printf '%s\n' "$fedora_release"
+}
+
+# Install the RPM Fusion release package for each named repository (free or
+# nonfree) that is not already enabled. The purpose names the approved feature.
+enable_rpmfusion_repositories() {
+	local purpose=$1
+	shift
+	local fedora_release
+	local repo
+	local urls=()
+	local names=()
+
+	fedora_release=$(fedora_numeric_release) || return 1
+	for repo in "$@"; do
+		if rpm -q "rpmfusion-${repo}-release" &>/dev/null; then
+			ok "RPM Fusion $repo is already enabled."
+			continue
+		fi
+		urls+=("https://mirrors.rpmfusion.org/${repo}/fedora/rpmfusion-${repo}-release-${fedora_release}.noarch.rpm")
+		names+=("$repo")
+	done
+	if ((${#urls[@]} == 0)); then
+		return 0
+	fi
+
+	info "Enabling RPM Fusion ${names[*]} for $purpose..."
+	sudo dnf install -y "${urls[@]}"
+}
+
+configure_fedora_gaming_repositories() {
 	if [[ $DISTRO_ID != "fedora" || $INSTALL_PROFILE != "full" || $ARCH != "x86_64" ]]; then
 		return 1
 	fi
@@ -215,23 +284,113 @@ configure_fedora_gaming_repositories() {
 		return 1
 	fi
 
-	if ! command -v rpm &>/dev/null; then
-		warn "rpm is unavailable; cannot determine the Fedora release for RPM Fusion."
-		return 1
-	fi
-	fedora_release=$(rpm -E '%fedora')
-	case "$fedora_release" in
-	'' | *[!0-9]*)
-		warn "Could not determine the numeric Fedora release for RPM Fusion."
-		return 1
-		;;
-	esac
-	rpmfusion_release_url="https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-${fedora_release}.noarch.rpm"
-	info "Enabling RPM Fusion nonfree for Steam..."
-	if ! sudo dnf install -y "$rpmfusion_release_url"; then
+	if ! enable_rpmfusion_repositories Steam nonfree; then
 		warn "Could not enable RPM Fusion nonfree; skipping Fedora gaming packages."
 		return 1
 	fi
+}
+
+nvidia_driver_installed() {
+	command -v rpm &>/dev/null && rpm -q akmod-nvidia &>/dev/null
+}
+
+nvidia_driver_candidate() {
+	[[ $DISTRO_ID == "fedora" && $ARCH == "x86_64" ]] || return 1
+	[[ "$(detect_gpu)" == "nvidia" ]]
+}
+
+nvidia_driver_status() {
+	if [[ $ARCH != "x86_64" ]]; then
+		printf 'skipped (unsupported architecture: %s)\n' "$ARCH"
+	elif nvidia_driver_installed; then
+		printf 'already installed (akmod-nvidia)\n'
+	elif ! nvidia_driver_candidate; then
+		printf 'skipped (no NVIDIA GPU detected)\n'
+	elif [[ $NVIDIA_INSTALL_MODE == false ]]; then
+		printf 'skipped (--skip-nvidia)\n'
+	elif [[ $NVIDIA_INSTALL_MODE == true ]]; then
+		printf 'approved (akmod-nvidia from RPM Fusion free and nonfree)\n'
+	else
+		printf 'requires separate confirmation (use --install-nvidia when unattended)\n'
+	fi
+}
+
+confirm_nvidia_driver() {
+	local answer
+
+	if nvidia_driver_installed; then
+		ok "NVIDIA akmod driver already installed."
+		return
+	fi
+	if ! nvidia_driver_candidate || [[ $NVIDIA_INSTALL_MODE == false ]]; then
+		return
+	fi
+	if [[ $NVIDIA_INSTALL_MODE == true ]]; then
+		NVIDIA_DRIVER_APPROVED=true
+		return
+	fi
+	if [[ $NON_INTERACTIVE == true ]]; then
+		warn "Skipping the proprietary NVIDIA driver because it was not approved."
+		warn "Re-run with --install-nvidia to install akmod-nvidia from RPM Fusion."
+		return
+	fi
+
+	echo ""
+	info "An NVIDIA GPU was detected."
+	printf '  %s\n' \
+		"The proprietary driver installs akmod-nvidia from RPM Fusion free and nonfree." \
+		"akmods rebuilds the kernel module for every new Fedora kernel." \
+		"The RPM Fusion driver package adds kernel arguments that disable Nouveau." \
+		"A reboot is required before the driver is used."
+	printf 'Install the proprietary NVIDIA driver (akmod-nvidia)? [y/N] '
+	read -r answer
+	case "$answer" in
+	y | Y | yes | YES)
+		NVIDIA_DRIVER_APPROVED=true
+		;;
+	*)
+		warn "NVIDIA driver declined; the open-source Nouveau driver remains in use."
+		;;
+	esac
+}
+
+secure_boot_enabled() {
+	command -v mokutil &>/dev/null &&
+		mokutil --sb-state 2>/dev/null | command grep -Fqi 'SecureBoot enabled'
+}
+
+install_nvidia_driver() {
+	local kernel
+
+	if [[ $NVIDIA_DRIVER_APPROVED != true ]]; then
+		return
+	fi
+	if ! enable_rpmfusion_repositories "the NVIDIA driver" free nonfree; then
+		warn "Could not enable RPM Fusion; the NVIDIA driver was not installed."
+		return
+	fi
+
+	info "Installing the proprietary NVIDIA akmod driver..."
+	if ! dwm_install_package_profile nvidia; then
+		warn "NVIDIA driver packages could not be installed; Nouveau remains in use."
+		return
+	fi
+
+	kernel=$(uname -r)
+	info "Building the NVIDIA kernel module for $kernel (this can take several minutes)..."
+	if sudo akmods --force --kernels "$kernel"; then
+		ok "NVIDIA kernel module built for $kernel."
+	else
+		warn "The NVIDIA kernel module build did not finish."
+		warn "Retry with: sudo akmods --force --kernels $kernel"
+	fi
+
+	if secure_boot_enabled; then
+		warn "Secure Boot is enabled; the unsigned NVIDIA module will not load until its key is enrolled."
+		warn "Enroll the akmods key with: sudo kmodgenca -a && sudo mokutil --import /etc/pki/akmods/certs/public_key.der"
+		warn "Then reboot and complete the MOK enrollment prompt."
+	fi
+	ok "NVIDIA driver installed. Reboot before using it."
 }
 
 configure_fedora_gamemode_access() {
@@ -304,6 +463,7 @@ print_install_summary() {
 		printf '  Optional extras: skipped\n'
 	fi
 	print_summary_profile "Terminal candidates" terminal
+	printf '  NVIDIA driver: %s\n' "$(nvidia_driver_status)"
 	if install_herdr_profile; then
 		printf '  Herdr workspace: verified user install from https://herdr.dev/install.sh\n'
 	elif [[ $HERDR_INSTALL_MODE == true ]]; then
@@ -544,6 +704,7 @@ info "Package manager: $PKG_CMD"
 info "Install profile: $INSTALL_PROFILE"
 confirm_install_summary
 confirm_fedora_gaming_repositories
+confirm_nvidia_driver
 
 if [[ $NON_INTERACTIVE != true ]]; then
 	"$REPO_DIR/scripts/configure-build.sh"
@@ -558,6 +719,9 @@ dwm_install_package_profile x11
 dwm_install_package_profile runtime-required
 dwm_install_package_profile media
 ok "Required build and runtime dependencies installed."
+
+# ── Proprietary NVIDIA driver ────────────────────────────
+install_nvidia_driver
 
 # ── Recommended desktop dependencies ─────────────────────
 if install_recommended_profile; then
