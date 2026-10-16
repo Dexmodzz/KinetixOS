@@ -212,6 +212,30 @@ packaging checks, or scripted validation, use the non-interactive flags:
 Without `--enable-fedora-gaming-repos`, unattended Fedora full installs skip
 Steam, Gamescope, GameMode, and MangoHud rather than changing repository trust.
 
+### Graphical login at boot
+
+A display manager such as LightDM starts at boot only when the default systemd
+target is `graphical.target`. Fedora Server and other minimal installs boot to
+`multi-user.target`, so an enabled LightDM stays stopped and the session must be
+started from a TTY with `startx`. When the installer finds an enabled display
+manager and a non-graphical default target, it asks:
+
+```text
+Start the graphical login (lightdm) at boot? [Y/n]
+```
+
+Accepting runs `sudo systemctl set-default graphical.target`, which takes
+effect at the next boot; the installer prints the command that restores the
+previous target. Unattended installs leave the target unchanged unless
+`--enable-graphical-login` or `DWM_GRAPHICAL_LOGIN=true` is provided, and
+`--skip-graphical-login` keeps the current target without asking. To change it
+manually:
+
+```bash
+sudo systemctl set-default graphical.target   # start the display manager at boot
+sudo systemctl set-default multi-user.target  # boot to a TTY and use startx
+```
+
 Herdr is skipped for every profile unless `--install-herdr` or
 `DWM_INSTALL_HERDR=true` is provided. Its published Linux binaries support
 x86_64 and aarch64. Installation alone does not change the terminal default;
