@@ -28,6 +28,10 @@ Options:
   --skip-herdr           Do not install Herdr.
   --enable-fedora-gaming-repos
                          Approve RPM Fusion nonfree for Steam.
+  --enable-graphical-login
+                         Boot to graphical.target so the enabled display
+                         manager starts at boot.
+  --skip-graphical-login Keep the current default boot target.
   --dry-run              Print the resolved plan and exit before changes.
   -h, --help             Show this help.
 EOF
@@ -56,6 +60,8 @@ NORDIC_THEME_REF="master"
 ARCH="$(uname -m)"
 INSTALL_PROFILE="${DWM_INSTALL_PROFILE:-full}"
 HERDR_INSTALL_MODE="${DWM_INSTALL_HERDR:-false}"
+GRAPHICAL_LOGIN_MODE="${DWM_GRAPHICAL_LOGIN:-auto}"
+DISPLAY_MANAGER_LINK=/etc/systemd/system/display-manager.service
 NON_INTERACTIVE=false
 ASSUME_YES=false
 FEDORA_GAMING_REPOS_APPROVED=false
@@ -94,6 +100,14 @@ while (($# > 0)); do
 		;;
 	--enable-fedora-gaming-repos)
 		FEDORA_GAMING_REPOS_APPROVED=true
+		shift
+		;;
+	--enable-graphical-login)
+		GRAPHICAL_LOGIN_MODE=true
+		shift
+		;;
+	--skip-graphical-login)
+		GRAPHICAL_LOGIN_MODE=false
 		shift
 		;;
 	--dry-run)
@@ -138,6 +152,21 @@ auto)
 	;;
 *)
 	err "Unsupported DWM_INSTALL_HERDR: $HERDR_INSTALL_MODE"
+	err "Supported values: auto, true, false"
+	exit 1
+	;;
+esac
+
+case "$GRAPHICAL_LOGIN_MODE" in
+auto) ;;
+1 | true | yes)
+	GRAPHICAL_LOGIN_MODE=true
+	;;
+0 | false | no)
+	GRAPHICAL_LOGIN_MODE=false
+	;;
+*)
+	err "Unsupported DWM_GRAPHICAL_LOGIN: $GRAPHICAL_LOGIN_MODE"
 	err "Supported values: auto, true, false"
 	exit 1
 	;;
@@ -304,6 +333,7 @@ print_install_summary() {
 		printf '  Optional extras: skipped\n'
 	fi
 	print_summary_profile "Terminal candidates" terminal
+	printf '  Graphical login at boot: %s\n' "$(graphical_login_status)"
 	if install_herdr_profile; then
 		printf '  Herdr workspace: verified user install from https://herdr.dev/install.sh\n'
 	elif [[ $HERDR_INSTALL_MODE == true ]]; then
@@ -479,10 +509,82 @@ configure_displays_after_install() {
 	esac
 }
 
+default_boot_target() {
+	command -v systemctl &>/dev/null || return 0
+	systemctl get-default 2>/dev/null || true
+}
+
+graphical_login_status() {
+	if [[ "$(default_boot_target)" == graphical.target ]]; then
+		printf 'already enabled (graphical.target)\n'
+	elif [[ $GRAPHICAL_LOGIN_MODE == false ]]; then
+		printf 'skipped (--skip-graphical-login)\n'
+	elif [[ $GRAPHICAL_LOGIN_MODE == true ]]; then
+		printf 'approved (sets graphical.target when a display manager is enabled)\n'
+	elif [[ $NON_INTERACTIVE == true ]]; then
+		printf 'unchanged (use --enable-graphical-login when unattended)\n'
+	else
+		printf 'asked after display-manager setup\n'
+	fi
+}
+
+# A display manager starts at boot only when the default target is graphical.
+# Change that target only with explicit approval, and print the manual command
+# whenever it is left unchanged.
+configure_graphical_login() {
+	local dm=$1
+	local current_target
+	local answer
+
+	[[ -n $dm ]] || return 0
+	command -v systemctl &>/dev/null || return 0
+	current_target=$(default_boot_target)
+	if [[ $current_target == graphical.target ]]; then
+		ok "Graphical login starts at boot ($dm)."
+		return 0
+	fi
+	if [[ ! -L $DISPLAY_MANAGER_LINK ]]; then
+		warn "$dm is installed but no display manager is enabled; the default boot target was not changed."
+		warn "Enable it with: sudo systemctl enable $dm.service && sudo systemctl set-default graphical.target"
+		return 0
+	fi
+
+	case "$GRAPHICAL_LOGIN_MODE" in
+	false)
+		warn "Graphical login at boot skipped; the system still boots to ${current_target:-its current target}."
+		warn "Enable it later with: sudo systemctl set-default graphical.target"
+		return 0
+		;;
+	auto)
+		if [[ $NON_INTERACTIVE == true ]]; then
+			warn "The system boots to ${current_target:-a non-graphical target}, so $dm will not start at boot."
+			warn "Re-run with --enable-graphical-login or run: sudo systemctl set-default graphical.target"
+			return 0
+		fi
+		printf 'Start the graphical login (%s) at boot? [Y/n] ' "$dm"
+		read -r answer
+		case "$answer" in
+		n | N | no | NO)
+			warn "Graphical login at boot declined; log in on a TTY and run startx."
+			warn "Enable it later with: sudo systemctl set-default graphical.target"
+			return 0
+			;;
+		esac
+		;;
+	esac
+
+	info "Setting the default boot target to graphical.target..."
+	if sudo systemctl set-default graphical.target; then
+		ok "$dm will start at the next boot. Undo with: sudo systemctl set-default ${current_target:-multi-user.target}"
+	else
+		warn "Could not change the default boot target; run: sudo systemctl set-default graphical.target"
+	fi
+}
+
 detect_display_manager() {
 	local unit
 
-	unit="$(readlink -f /etc/systemd/system/display-manager.service 2>/dev/null || true)"
+	unit="$(readlink -f "$DISPLAY_MANAGER_LINK" 2>/dev/null || true)"
 	case "$(basename "$unit")" in
 	lightdm.service)
 		echo "lightdm"
@@ -710,6 +812,9 @@ if [[ $currentdm == "lightdm" ]]; then
 	install_lightdm_config
 	ok "LightDM config deployed."
 fi
+
+# ── Graphical login at boot ──────────────────────────────
+configure_graphical_login "$currentdm"
 
 # ── Build & Install ──────────────────────────────────────
 cd "$REPO_DIR"
