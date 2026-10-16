@@ -6,6 +6,13 @@ versions from `config.mk`.
 
 ## [Unreleased]
 
+### Added
+
+- `install.sh` offers to boot to `graphical.target` when a display manager is
+  enabled but the system boots to a TTY, so LightDM starts after installation
+  on Fedora Server. Use `--enable-graphical-login` or `--skip-graphical-login`
+  for unattended installs.
+
 ## [0.1.0]
 
 ### Added
