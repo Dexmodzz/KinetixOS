@@ -212,6 +212,34 @@ packaging checks, or scripted validation, use the non-interactive flags:
 Without `--enable-fedora-gaming-repos`, unattended Fedora full installs skip
 Steam, Gamescope, GameMode, and MangoHud rather than changing repository trust.
 
+### NVIDIA driver
+
+When an x86_64 system has an NVIDIA GPU (including hybrid laptops) and
+`akmod-nvidia` is not installed yet, every profile asks:
+
+```text
+Install the proprietary NVIDIA driver (akmod-nvidia)? [y/N]
+```
+
+The default answer keeps the open-source Nouveau driver. Accepting it enables
+RPM Fusion free and nonfree, installs `akmod-nvidia`, `xorg-x11-drv-nvidia`,
+`xorg-x11-drv-nvidia-cuda`, `nvidia-settings`, and `kernel-devel`, and builds
+the kernel module for the running kernel with `akmods`. akmods, the Fedora
+equivalent of DKMS, rebuilds the module for each new kernel. The RPM Fusion
+driver package itself adds the kernel arguments that disable Nouveau. Reboot
+before using the driver.
+
+With Secure Boot enabled, the unsigned module does not load until its akmods
+key is enrolled. The installer prints the enrollment commands but never enrolls
+a key itself.
+
+Unattended installs skip the driver unless `--install-nvidia` or
+`DWM_INSTALL_NVIDIA=true` is provided; `--skip-nvidia` suppresses the prompt:
+
+```bash
+./install.sh --non-interactive --yes --profile recommended --install-nvidia
+```
+
 ### Graphical login at boot
 
 A display manager such as LightDM starts at boot only when the default systemd

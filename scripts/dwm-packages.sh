@@ -78,6 +78,13 @@ dwm_packages() {
 				mangohud.x86_64 mangohud.i686
 		fi
 		;;
+	fedora:nvidia)
+		# Opt-in only: RPM Fusion proprietary driver built by akmods. Never part
+		# of a profile aggregate; the NVIDIA Kickstart and install.sh select it.
+		printf '%s\n' \
+			kernel-devel akmod-nvidia xorg-x11-drv-nvidia \
+			xorg-x11-drv-nvidia-cuda nvidia-settings
+		;;
 	fedora:theme)
 		printf '%s\n' dconf adwaita-icon-theme papirus-icon-theme
 		;;

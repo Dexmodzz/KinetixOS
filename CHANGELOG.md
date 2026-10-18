@@ -8,6 +8,9 @@ versions from `config.mk`.
 
 ### Added
 
+- `install.sh` offers the proprietary NVIDIA driver (`akmod-nvidia` from RPM
+  Fusion) when it detects an NVIDIA GPU. The prompt defaults to no; use
+  `--install-nvidia` or `--skip-nvidia` for unattended installs.
 - `install.sh` offers to boot to `graphical.target` when a display manager is
   enabled but the system boots to a TTY, so LightDM starts after installation
   on Fedora Server. Use `--enable-graphical-login` or `--skip-graphical-login`
