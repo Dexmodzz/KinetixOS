@@ -74,6 +74,9 @@ flatpak --system info it.mijorus.gearlever >/dev/null
 [[ $(fc-match -f '%{family}' 'MesloLGS Nerd Font Mono') == *Meslo* ]]
 [[ -n $(find /boot -maxdepth 1 -name 'vmlinuz-*' -print -quit) ]]
 [[ -x /usr/libexec/polkit-mate-authentication-agent-1 ]]
+# The greeter must show on an external monitor with the laptop lid closed.
+[[ -x /usr/libexec/kinetixos/lightdm-display-setup ]]
+grep -Fqx 'display-setup-script=/usr/libexec/kinetixos/lightdm-display-setup' /etc/lightdm/lightdm.conf
 [[ -d /usr/share/themes/Nordic && -f /usr/share/xsessions/dwm.desktop ]]
 [[ ! -s /etc/machine-id && ! -s /etc/fstab ]]
 [[ -z $(awk -F: '$3 >= 1000 && $3 < 60000 {print $1}' /etc/passwd) ]]

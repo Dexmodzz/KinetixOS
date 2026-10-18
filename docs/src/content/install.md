@@ -361,6 +361,10 @@ separate operation in Settings; follow its recorded transaction guidance.
 
 **Display manager** (SDDM, GDM, LightDM): log out and select **dwm** from the session list.
 
+With LightDM, a connected external monitor is the only, primary display from
+the login screen onward, so a laptop can stay closed and work as a desktop. The
+lid switch suspends the laptop only when no external monitor is connected.
+
 When the interactive installer runs inside an active X11 session, it offers
 the `dwm-display-setup` wizard after installation. The wizard previews the
 chosen resolution and multi-monitor layout, then installs a backed-up Xorg

@@ -630,6 +630,7 @@ install_lightdm_config() {
 		sudo restorecon \
 			"$lightdm_config" \
 			/etc/lightdm/slick-greeter.conf \
+			/usr/libexec/kinetixos/lightdm-display-setup \
 			/usr/share/pixmaps/kinetixos.jpg \
 			/usr/share/pixmaps/kinetixos-logo.png
 	fi
