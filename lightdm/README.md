@@ -11,8 +11,19 @@ renders the matching Fedora `lightdm.conf`.
 | File | Destination |
 |------|-------------|
 | `lightdm.conf` | `/etc/lightdm/lightdm.conf` |
+| `kinetixos-display-setup` | `/usr/libexec/kinetixos/lightdm-display-setup` |
 | `slick-greeter.conf` | `/etc/lightdm/slick-greeter.conf` |
 | `wallpaper.jpg` | `/usr/share/pixmaps/kinetixos.jpg` |
+
+## External monitor with the lid closed
+
+The rendered `lightdm.conf` sets `display-setup-script` to
+`kinetixos-display-setup`, which runs `dwm-hdmi-watch --apply` before the
+greeter starts. A connected external monitor becomes the only, primary display,
+so the greeter appears on it even with the laptop lid closed. Because the
+external output is enabled, systemd-logind treats the laptop as docked and
+applies `HandleLidSwitchDocked=ignore` instead of suspending on the lid switch.
+The script always exits 0 so a layout failure never stops the greeter.
 
 ## Install
 

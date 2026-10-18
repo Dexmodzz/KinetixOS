@@ -1,0 +1,21 @@
+#!/bin/sh
+# LightDM display-setup-script: make a connected external monitor the only,
+# primary display before the greeter starts. With the laptop lid closed the
+# greeter then appears on the external monitor, and systemd-logind sees the
+# enabled external output as docked instead of suspending on the lid switch.
+#
+# LightDM stops the seat when this script fails, and a greeter on the wrong
+# screen is better than no greeter, so the script always exits 0.
+set -eu
+
+PATH=${PATH:+$PATH:}/usr/local/bin:/usr/bin:/bin
+export PATH
+hdmi_watch=${DWM_HDMI_WATCH:-dwm-hdmi-watch}
+
+if command -v "$hdmi_watch" >/dev/null 2>&1; then
+	timeout --signal=TERM --kill-after=1 8 "$hdmi_watch" --apply ||
+		printf '%s\n' 'kinetixos-display-setup: external monitor layout could not be applied' >&2
+else
+	printf '%s\n' "kinetixos-display-setup: $hdmi_watch not found" >&2
+fi
+exit 0

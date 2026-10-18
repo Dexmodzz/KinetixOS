@@ -216,6 +216,14 @@ The supported installation flow must:
     drivers; preview changes with rollback; and preserve existing system Xorg
     configuration through an isolated managed fragment and backups. When no
     X11 session is available, print the deferred setup command instead.
+14. When a display manager is enabled but the default boot target is not
+    `graphical.target`, offer to set `graphical.target` so the display manager
+    starts at boot. The interactive prompt defaults to yes; non-interactive
+    runs change the target only with `--enable-graphical-login` or
+    `DWM_GRAPHICAL_LOGIN=true`, and otherwise print the manual command.
+    `--skip-graphical-login` keeps the current target. The installer reports
+    the undo command and never changes the target without one of these
+    approvals.
 
 The existing-system installer may enable RPM Fusion nonfree only for the
 explicitly requested gaming profile or the approved NVIDIA driver described
