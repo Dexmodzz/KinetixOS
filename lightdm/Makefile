@@ -8,6 +8,7 @@ LIGHTDM_GREETER_SESSION ?= slick-greeter
 LIGHTDM_USER_SESSION ?= dwm
 LIGHTDM_SESSION_WRAPPER ?=
 LIGHTDM_LOGIND_CHECK ?= true
+LIGHTDM_DISPLAY_SETUP ?= /usr/libexec/kinetixos/lightdm-display-setup
 
 print-config:
 	@if [ "$(LIGHTDM_LOGIND_CHECK)" = true ]; then \
@@ -18,6 +19,7 @@ print-config:
 	printf '[%s]\n' "$(LIGHTDM_SEAT_SECTION)"; \
 	printf 'greeter-session=%s\n' "$(LIGHTDM_GREETER_SESSION)"; \
 	printf 'user-session=%s\n' "$(LIGHTDM_USER_SESSION)"; \
+	printf 'display-setup-script=%s\n' "$(LIGHTDM_DISPLAY_SETUP)"; \
 	if [ -n "$(LIGHTDM_SESSION_WRAPPER)" ]; then \
 		printf 'session-wrapper=%s\n' "$(LIGHTDM_SESSION_WRAPPER)"; \
 	fi
@@ -30,6 +32,7 @@ install:
 		cp -a $(LIGHTDM_CONF) $(LIGHTDM_CONF).kinetixos.$$(date +%Y%m%d%H%M%S).bak; \
 	fi; \
 	install -Dm644 "$$tmp"                           $(LIGHTDM_CONF)
+	install -Dm755 kinetixos-display-setup           $(DESTDIR)$(LIGHTDM_DISPLAY_SETUP)
 	install -Dm644 slick-greeter.conf                $(LIGHTDM_DIR)/slick-greeter.conf
 	install -Dm644 wallpaper.jpg                     $(PIXMAPS_DIR)/kinetixos.jpg
 	install -Dm644 ../branding/kinetixos-logo.png   $(PIXMAPS_DIR)/kinetixos-logo.png

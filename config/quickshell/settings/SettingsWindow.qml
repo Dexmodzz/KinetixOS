@@ -338,6 +338,8 @@ FloatingWindow {
                                 dataLoading: root.settingsModel.displayState === "loading" || root.settingsModel.displayRefreshPending || root.settingsModel.automaticDisplayBusy || root.settingsModel.automaticDisplayRefreshPending || root.settingsModel.displayActionBusy
                                 windowVisible: root.visible
                                 sourceComponent: DisplaySettingsPane {
+                                    opacity: 0
+                                    enabled: false
                                     settingsModel: root.settingsModel
                                 }
                             }
@@ -349,6 +351,8 @@ FloatingWindow {
                                 dataLoading: root.settingsModel.inputState === "loading" || root.settingsModel.inputRefreshPending || root.settingsModel.inputActionBusy
                                 windowVisible: root.visible
                                 sourceComponent: InputSettingsPane {
+                                    opacity: 0
+                                    enabled: false
                                     settingsModel: root.settingsModel
                                 }
                             }
@@ -360,6 +364,8 @@ FloatingWindow {
                                 dataLoading: root.networkModel.initialLoading
                                 windowVisible: root.visible
                                 sourceComponent: NetworkSettingsPane {
+                                    opacity: 0
+                                    enabled: false
                                     networkModel: root.networkModel
                                 }
                             }
@@ -371,6 +377,8 @@ FloatingWindow {
                                 dataLoading: root.bluetoothModel.initialLoading
                                 windowVisible: root.visible
                                 sourceComponent: BluetoothSettingsPane {
+                                    opacity: 0
+                                    enabled: false
                                     bluetoothModel: root.bluetoothModel
                                 }
                             }
@@ -382,6 +390,8 @@ FloatingWindow {
                                 dataLoading: root.controlsModel.initialLoading
                                 windowVisible: root.visible
                                 sourceComponent: AudioSettingsPane {
+                                    opacity: 0
+                                    enabled: false
                                     controlsModel: root.controlsModel
                                 }
                             }
@@ -393,6 +403,8 @@ FloatingWindow {
                                 dataLoading: root.powerModel.initialLoading
                                 windowVisible: root.visible
                                 sourceComponent: PowerSettingsPane {
+                                    opacity: 0
+                                    enabled: false
                                     powerModel: root.powerModel
                                     powerMenuModel: root.powerMenuModel
                                 }
@@ -405,6 +417,8 @@ FloatingWindow {
                                 dataLoading: root.defaultsModel.initialLoading || root.autostartModel.initialLoading
                                 windowVisible: root.visible
                                 sourceComponent: DefaultsSettingsPane {
+                                    opacity: 0
+                                    enabled: false
                                     defaultsModel: root.defaultsModel
                                     autostartModel: root.autostartModel
                                 }
@@ -419,6 +433,8 @@ FloatingWindow {
                                     || root.settingsModel.capabilityRefreshPending
                                 windowVisible: root.visible
                                 sourceComponent: AppearanceSettingsPane {
+                                    opacity: 0
+                                    enabled: false
                                     appearanceModel: root.appearanceModel
                                     accessibilityModel: root.accessibilityModel
                                     notificationModel: root.notificationModel
@@ -441,6 +457,8 @@ FloatingWindow {
                                 dataLoading: root.systemManagementModel.initialLoading || (root.desktopUpdateModel && root.desktopUpdateModel.initialLoading)
                                 windowVisible: root.visible
                                 sourceComponent: SystemSettingsPane {
+                                    opacity: 0
+                                    enabled: false
                                     desktopUpdateModel: root.desktopUpdateModel
                                     clockText: root.clock.settingsText
                                     systemManagementModel: root.systemManagementModel

@@ -31,6 +31,9 @@ Loader {
 
     // Opacity keeps the loaded layout participating in polish while hiding
     // intermediate geometry. Later refreshes never hide usable controls.
+    // Asynchronous incubation parents the item before `item` is set, so these
+    // bindings start late: every sourceComponent must declare `opacity: 0` and
+    // `enabled: false` itself so it is never shown while incubating.
     Binding {
         target: root.item
         property: "opacity"

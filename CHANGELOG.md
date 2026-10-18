@@ -13,6 +13,13 @@ versions from `config.mk`.
   on Fedora Server. Use `--enable-graphical-login` or `--skip-graphical-login`
   for unattended installs.
 
+### Fixed
+
+- Show the LightDM greeter on a connected external monitor when the laptop lid
+  is closed, and stop the lid switch from suspending the laptop at the greeter.
+- Keep Settings panes hidden and disabled while they load asynchronously, so
+  controls never flash usable before their data arrives.
+
 ## [0.1.0]
 
 ### Added

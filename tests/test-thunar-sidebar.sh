@@ -51,6 +51,8 @@ new_home() {
 	: >"$home/.config/user-dirs.dirs"
 	while [ "$#" -gt 0 ]; do
 		mkdir -p "$home/$2"
+		# user-dirs.dirs stores a literal $HOME.
+		# shellcheck disable=SC2016
 		printf 'XDG_%s_DIR="$HOME/%s"\n' "$1" "$2" >>"$home/.config/user-dirs.dirs"
 		shift 2
 	done
