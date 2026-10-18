@@ -153,7 +153,7 @@ packages are installed only when the user asks for them.
 
 - RPM Fusion repositories stay declared in both Kickstarts regardless of the
   gaming answer (see Non-goals).
-- The questions are shown on the local console only. Following a serial
+- The questions are shown on the machine's display console (physical or VM). Following a serial
   console is not attempted, because headless installs are unsupported.
 - The gaming question keeps its exact `install.sh` wording, with `[y/N]` and
   the default no.
@@ -164,7 +164,7 @@ packages are installed only when the user asks for them.
 - `SPEC.md`: record that both installer ISOs ask the gaming question and the
   four build questions during installation, install the gaming set only on
   approval, use refresh rate 60, and that cursor warp now defaults to off.
-  Also record that these ISOs require a local screen and keyboard, and the
+  Also record that these ISOs require a screen and keyboard (physical or a VM console such as Proxmox), and the
   known system-image builder limitation.
   Update the section 5.10/5.11 text that currently implies the image decides
   its own package set.
