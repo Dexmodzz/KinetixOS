@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# wait_for evaluates its argument later, so its single quotes are intentional.
+# shellcheck disable=SC2016
 set -euo pipefail
 
 repo=$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
@@ -63,8 +65,8 @@ expect_log() {
 }
 
 wait_for() {
-	local i
-	for i in $(seq 100); do
+	local _
+	for _ in $(seq 100); do
 		eval "$1" && return 0
 		sleep 0.05
 	done
@@ -124,6 +126,7 @@ wait_for '[ "$(wc -l <"$work/xrandr.log")" -eq 2 ]'
 [[ $(tail -n 1 "$work/xrandr.log") == '--output eDP-1 --auto --primary --output HDMI-1 --off' ]] ||
 	fail "unexpected unplug layout: $(tail -n 1 "$work/xrandr.log")"
 
+# shellcheck disable=SC2034 # read by wait_for through eval
 udev_pid=$(cat "$work/udevadm.pid")
 : >"$work/xprop.stop"
 wait_for '! kill -0 "$watcher" 2>/dev/null'
@@ -140,6 +143,7 @@ PATH="$work/bin:/usr/bin:/bin" FAKE_DIR="$work" DISPLAY=:78 \
 	"$helper" 2>/dev/null &
 watcher=$!
 wait_for '[ -s "$work/udevadm.pid" ]'
+# shellcheck disable=SC2034 # read by wait_for through eval
 udev_pid=$(cat "$work/udevadm.pid")
 kill -TERM "$watcher"
 wait_for '! kill -0 "$watcher" 2>/dev/null'
