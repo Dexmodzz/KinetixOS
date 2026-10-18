@@ -90,7 +90,7 @@ A built-in system tray is compiled in and can be configured in `config.h`.
 When only one window is visible on a tag, its border is automatically removed for a cleaner look. Borders return when a second window appears.
 
 ### Cursor Warp
-When focus moves to a different window or monitor (via keyboard), the mouse cursor warps to the center of the newly focused window.
+Off by default. With `cursorwarp = 1` in `config.h`, when focus moves to a different window or monitor (via keyboard), the mouse cursor warps to the center of the newly focused window.
 
 ---
 

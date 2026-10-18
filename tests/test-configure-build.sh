@@ -30,6 +30,16 @@ grep -Eq 'resizehints[[:space:]]*=[[:space:]]*0;' "$output"
 grep -Eq '^#define MODKEY[[:space:]]+Mod1Mask$' "$output"
 grep -Fq 'MesloLGS Nerd Font Mono:size=15' "$output"
 
+# Cursor warp is off unless explicitly enabled.
+grep -Eq '^static const int cursorwarp[[:space:]]*=[[:space:]]*0;' "$repo_dir/config.def.h"
+default_output="$work/default-config.h"
+env -u DWM_CURSORWARP DWM_REFRESH_RATE=60 \
+	"$repo_dir/scripts/configure-build.sh" \
+	--non-interactive \
+	--template "$repo_dir/config.def.h" \
+	--output "$default_output" >/dev/null
+grep -Eq 'cursorwarp[[:space:]]*=[[:space:]]*0;' "$default_output"
+
 before=$(sha256sum "$output" | awk '{print $1}')
 DWM_REFRESH_RATE=60 \
 	"$repo_dir/scripts/configure-build.sh" \

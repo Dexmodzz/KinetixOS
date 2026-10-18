@@ -117,7 +117,8 @@ Alacritty. The default `Super`+`X` binding remains plain Alacritty.
 ## Multi-Monitor Issues
 
 - Tags not syncing across monitors: run `dwm-diagnostics`
-- Cursor doesn't follow focus: verify cursor warp is enabled in `config.h` (`cursorwarp = 1`)
+- Cursor doesn't follow focus: cursor warp is off by default; enable it with
+  `cursorwarp = 1` in `config.h`, then rebuild dwm
 - Persistent resolution or positioning: run `dwm-display-setup detect`, then
   `dwm-display-setup`. The wizard previews changes before writing Xorg config.
 - Bad persistent layout: run `dwm-display-setup rollback`, then log out and

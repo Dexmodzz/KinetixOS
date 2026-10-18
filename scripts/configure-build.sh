@@ -157,7 +157,7 @@ font_size=${DWM_FONT_SIZE:-12}
 modkey=${DWM_MODKEY:-super}
 mfact=${DWM_MFACT:-0.55}
 nmaster=${DWM_NMASTER:-1}
-cursorwarp=${DWM_CURSORWARP:-1}
+cursorwarp=${DWM_CURSORWARP:-0}
 swallowfloating=${DWM_SWALLOWFLOATING:-0}
 resizehints=${DWM_RESIZEHINTS:-1}
 
