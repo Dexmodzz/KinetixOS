@@ -8,6 +8,10 @@ versions from `config.mk`.
 
 ### Added
 
+- The standard and NVIDIA installer ISOs ask, before Anaconda's UI, whether to
+  install the Fedora gaming packages and the dwm font size, modifier key,
+  master-area ratio and master window count. Gaming packages are installed only
+  on yes. The questions need a screen and keyboard (a Proxmox VM console works).
 - `install.sh` offers the proprietary NVIDIA driver (`akmod-nvidia` from RPM
   Fusion) when it detects an NVIDIA GPU. The prompt defaults to no; use
   `--install-nvidia` or `--skip-nvidia` for unattended installs.
@@ -15,6 +19,10 @@ versions from `config.mk`.
   enabled but the system boots to a TTY, so LightDM starts after installation
   on Fedora Server. Use `--enable-graphical-login` or `--skip-graphical-login`
   for unattended installs.
+
+### Changed
+
+- Cursor warp is off by default (`cursorwarp = 0`).
 
 ### Fixed
 
