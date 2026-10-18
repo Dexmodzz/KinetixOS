@@ -35,11 +35,18 @@ packages are installed only when the user asks for them.
    either ISO. The installer waits on them until a person answers and must
    never proceed on its own with defaults. There is no boot argument, answers
    file or other way to skip them.
-4. **Local screen and keyboard are required.** Before the first question the
-   screen states that this installer needs a local screen and keyboard. The
-   same requirement is written in `SPEC.md` and in the user install docs.
-   Headless installs (serial console, VNC/RDP, PXE without a local console)
-   are unsupported for these two ISOs.
+4. **A screen and keyboard are required.** Before the first question the
+   screen states that this installer needs a screen and keyboard. The same
+   requirement is written in `SPEC.md` and in the user install docs.
+   - **Supported:** physical machines, and virtual machines whose console
+     gives a virtual display and keyboard. **Proxmox VE must work** (owner
+     requirement): its noVNC/SPICE console shows the VM's own display, so the
+     questions appear there and are answered with that keyboard. QEMU/KVM
+     with a graphical console (virt-manager) works the same way.
+   - **Unsupported:** installs with no display console at all, such as
+     serial-only (`console=ttyS0`, `inst.text` over serial) or Anaconda's own
+     remote modes (`inst.vnc`, `inst.rdp`), where the VM display is never
+     looked at.
 5. Gaming packages (the current `/tmp/kinetixos-gaming-packages` list) are
    installed only when question 1 is answered yes. A no (or Enter, since the
    default is no) installs none of them. This applies to the ISOs only.
@@ -134,7 +141,10 @@ packages are installed only when the user asks for them.
   `install.sh`.
 - No timeout: wait until someone answers.
 - The questions are always asked, with no bypass. The user is told that a
-  local screen and keyboard are required.
+  screen and keyboard are required.
+- Installs in Proxmox VMs must work (there is always a keyboard on the VM
+  console).
+- Cursor warp is never asked in the two ISOs; it stays off.
 - Only the two normal installer ISOs are in scope. The precompiled image
   and its builder are left for later, and its builder will hang meanwhile.
 - The gaming answer affects only the ISOs; `install.sh` is unchanged.
@@ -195,3 +205,9 @@ packages are installed only when the user asks for them.
   `~/.local/share/kinetixos` holds the answers with `refresh_rate = 60` and
   `cursorwarp = 0`, and that `rpm -q steam gamescope gamemode mangohud`
   matches the answer.
+- At least one of those installs runs in a **Proxmox VE VM** through its
+  noVNC console, with the default display and keyboard, to confirm that the
+  questions are visible and answerable there and that Anaconda appears
+  afterwards.
+- Confirm that cursor warp is never asked in either ISO and that the
+  installed `config.h` has `cursorwarp = 0`.
