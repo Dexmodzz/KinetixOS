@@ -242,6 +242,71 @@ done < <(dwm_packages fedora nvidia)
 grep -Fq 'options nvidia-drm modeset=1 fbdev=1' "$nvidia_ks"
 grep -Fq 'rd.driver.blacklist=nouveau modprobe.blacklist=nouveau nvidia-drm.modeset=1' "$nvidia_ks"
 
+# Both installer ISOs ask the same install questions in %pre, before
+# Anaconda's UI, and install the gaming set only on yes.
+extract_pre() {
+	awk '/^%pre/ { active=1 } active { print } active && /^%end/ { exit }' "$1"
+}
+if [[ "$(extract_pre "$standard_ks")" != "$(extract_pre "$nvidia_ks")" ]]; then
+	printf 'The %%pre blocks of the two Kickstarts differ.\n' >&2
+	exit 1
+fi
+gaming_expected="$work/gaming-expected"
+if [[ "$(uname -m)" == x86_64 ]]; then
+	printf '%s\n' steam gamescope gamemode.x86_64 gamemode.i686 mangohud.x86_64 mangohud.i686 >"$gaming_expected"
+else
+	: >"$gaming_expected"
+fi
+for ks in "$standard_ks" "$nvidia_ks"; do
+	extract_pre "$ks" | head -n 1 | grep -Fxq '%pre --interpreter=/bin/sh --erroronfail'
+	# The system-image builder rewrites every "set -eu" line; keep %pre clear of it.
+	if extract_pre "$ks" | grep -Fxq 'set -eu'; then
+		printf '%%pre must not use a bare set -eu line: %s\n' "$ks" >&2
+		exit 1
+	fi
+	extract_pre "$ks" | sed -e '1d' -e '$d' \
+		-e "s#/run/install/repo/kinetixos#$repo#g" \
+		-e "s#/tmp/#$work/pre/#g" >"$work/pre.sh"
+	for answer in yes no eof; do
+		rm -rf "$work/pre"
+		mkdir -p "$work/pre"
+		case $answer in
+		yes) input='y\n\n\n\n\n' ;;
+		no) input='\n\n\n\n\n' ;;
+		eof) input='' ;;
+		esac
+		status=0
+		printf '%b' "$input" | KINETIXOS_QUESTIONS_TTY=stdio sh "$work/pre.sh" >/dev/null 2>&1 || status=$?
+		case $answer in
+		yes)
+			[[ $status == 0 ]]
+			cmp -s "$gaming_expected" "$work/pre/kinetixos-gaming-packages" || {
+				printf 'Gaming yes did not produce the gaming package list: %s\n' "$ks" >&2
+				exit 1
+			}
+			;;
+		no)
+			[[ $status == 0 && -f $work/pre/kinetixos-gaming-packages ]]
+			if [[ -s $work/pre/kinetixos-gaming-packages ]]; then
+				printf 'Gaming no still lists gaming packages: %s\n' "$ks" >&2
+				exit 1
+			fi
+			;;
+		eof)
+			if [[ $status == 0 ]]; then
+				printf '%%pre continued without answers: %s\n' "$ks" >&2
+				exit 1
+			fi
+			;;
+		esac
+	done
+	grep -Fq 'install -m 0600 /tmp/kinetixos-install-answers /mnt/sysimage/root/kinetixos-install-answers' "$ks"
+	grep -Fq 'iso-questions.sh" env /root/kinetixos-install-answers' "$ks"
+	# shellcheck disable=SC2016 # Match the literal Kickstart text.
+	grep -Fq '&& $install_env dbus-run-session' "$ks"
+	grep -Fq 'rm -f /root/kinetixos-install-answers' "$ks"
+done
+
 grep -Fq 'variant=standard' "$builder"
 grep -Fq 'dwm-fedora-nvidia.ks' "$builder"
 grep -Fq 'rd.driver.blacklist=nouveau modprobe.blacklist=nouveau nvidia-drm.modeset=1' "$builder"
