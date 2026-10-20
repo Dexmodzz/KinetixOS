@@ -420,7 +420,8 @@ Runtime dependencies are classified as:
   are preserved; Herdr activation and existing-system installation remain opt-in.
 - Optional: the Herdr terminal workspace, file manager, network tray, theme
   utilities, display-manager greeter customization, wallpapers, and
-  hardware-specific helpers.
+  hardware-specific helpers. The installer ISOs always download the default
+  wallpaper set (section 5.11).
 
 ### 5.9 System Health Dashboard
 
@@ -683,7 +684,11 @@ installation if input ends before every question is answered. The Fedora
 gaming set (Steam, Gamescope, GameMode, MangoHud) is installed only on a yes;
 the declared repositories do not change. The answers feed the single dwm
 build; the ISOs always build with refresh rate 60, which users change later in
-Settings, and cursor warp off. Neither is asked.
+Settings, and cursor warp off. Neither is asked. After `install.sh`, both ISOs
+download the default wallpaper set from `https://github.com/Dexmodzz/my-background`
+into the new user's `~/Pictures/backgrounds` when that directory is missing. A
+failed download is reported in the Kickstart log and leaves a plain background;
+it does not abort the installation.
 
 These ISOs require a screen and keyboard: a physical machine, or a virtual
 machine with a display console such as Proxmox VE (noVNC or SPICE) or a

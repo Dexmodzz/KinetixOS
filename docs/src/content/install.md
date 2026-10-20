@@ -53,6 +53,11 @@ consoles and Anaconda's `inst.vnc` or `inst.rdp` modes are not supported.
 The ISO builds dwm with a 60 Hz refresh rate and cursor warp off. Change the
 refresh rate later in Settings.
 
+The installer also downloads the default wallpapers into
+`~/Pictures/backgrounds`. If that download fails, the background stays plain;
+add your own images to that folder, or run
+`git clone https://github.com/Dexmodzz/my-background.git ~/Pictures/backgrounds`.
+
 ### Verify the Image
 
 The image build writes a `SHA256SUMS` file next to the ISO. In that directory,

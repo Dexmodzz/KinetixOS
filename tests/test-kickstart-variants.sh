@@ -264,9 +264,10 @@ for ks in "$standard_ks" "$nvidia_ks"; do
 		printf '%%pre must not use a bare set -eu line: %s\n' "$ks" >&2
 		exit 1
 	fi
+	# Rewrite /tmp/ before inserting $repo, which may itself contain /tmp/.
 	extract_pre "$ks" | sed -e '1d' -e '$d' \
-		-e "s#/run/install/repo/kinetixos#$repo#g" \
-		-e "s#/tmp/#$work/pre/#g" >"$work/pre.sh"
+		-e "s#/tmp/#$work/pre/#g" \
+		-e "s#/run/install/repo/kinetixos#$repo#g" >"$work/pre.sh"
 	for answer in yes no eof; do
 		rm -rf "$work/pre"
 		mkdir -p "$work/pre"
@@ -279,14 +280,20 @@ for ks in "$standard_ks" "$nvidia_ks"; do
 		printf '%b' "$input" | KINETIXOS_QUESTIONS_TTY=stdio sh "$work/pre.sh" >/dev/null 2>&1 || status=$?
 		case $answer in
 		yes)
-			[[ $status == 0 ]]
+			[[ $status == 0 ]] || {
+				printf '%%pre failed for a yes answer: %s\n' "$ks" >&2
+				exit 1
+			}
 			cmp -s "$gaming_expected" "$work/pre/kinetixos-gaming-packages" || {
 				printf 'Gaming yes did not produce the gaming package list: %s\n' "$ks" >&2
 				exit 1
 			}
 			;;
 		no)
-			[[ $status == 0 && -f $work/pre/kinetixos-gaming-packages ]]
+			[[ $status == 0 && -f $work/pre/kinetixos-gaming-packages ]] || {
+				printf '%%pre failed or wrote no gaming include for a no answer: %s\n' "$ks" >&2
+				exit 1
+			}
 			if [[ -s $work/pre/kinetixos-gaming-packages ]]; then
 				printf 'Gaming no still lists gaming packages: %s\n' "$ks" >&2
 				exit 1
@@ -305,6 +312,17 @@ for ks in "$standard_ks" "$nvidia_ks"; do
 	# shellcheck disable=SC2016 # Match the literal Kickstart text.
 	grep -Fq '&& $install_env dbus-run-session' "$ks"
 	grep -Fq 'rm -f /root/kinetixos-install-answers' "$ks"
+	# Installer ISOs always seed the default wallpaper set for the new user;
+	# a download failure must not abort the installation.
+	# shellcheck disable=SC2016 # Match the literal Kickstart text.
+	grep -Fq 'git clone --depth 1 https://github.com/Dexmodzz/my-background.git "$HOME/Pictures/backgrounds"' "$ks" || {
+		printf 'Kickstart does not download the default wallpapers: %s\n' "$ks" >&2
+		exit 1
+	}
+	grep -Fq 'Wallpaper download failed; add images to ~/Pictures/backgrounds.' "$ks" || {
+		printf 'Wallpaper download failure is not handled as a warning: %s\n' "$ks" >&2
+		exit 1
+	}
 done
 
 grep -Fq 'variant=standard' "$builder"

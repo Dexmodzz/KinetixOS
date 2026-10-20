@@ -12,6 +12,9 @@ versions from `config.mk`.
   install the Fedora gaming packages and the dwm font size, modifier key,
   master-area ratio and master window count. Gaming packages are installed only
   on yes. The questions need a screen and keyboard (a Proxmox VM console works).
+- The installer ISOs download the default wallpapers into
+  `~/Pictures/backgrounds`, so a fresh install no longer starts on a black
+  background.
 - `install.sh` offers the proprietary NVIDIA driver (`akmod-nvidia` from RPM
   Fusion) when it detects an NVIDIA GPU. The prompt defaults to no; use
   `--install-nvidia` or `--skip-nvidia` for unattended installs.
