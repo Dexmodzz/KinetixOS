@@ -12,6 +12,9 @@ versions from `config.mk`.
   install the Fedora gaming packages and the dwm font size, modifier key,
   master-area ratio and master window count. Gaming packages are installed only
   on yes. The questions need a screen and keyboard (a Proxmox VM console works).
+- The installer ISOs create the XDG user folders during installation, so the
+  Thunar side pane bookmarks Documents, Pictures, Music and Downloads from the
+  first login, as with `install.sh --profile full`.
 - The installer ISOs download the default wallpapers into
   `~/Pictures/backgrounds`, so a fresh install no longer starts on a black
   background.

@@ -685,7 +685,8 @@ gaming set (Steam, Gamescope, GameMode, MangoHud) is installed only on a yes;
 the declared repositories do not change. The answers feed the single dwm
 build; the ISOs always build with refresh rate 60, which users change later in
 Settings, and cursor warp off. Neither is asked. After `install.sh`, both ISOs
-download the default wallpaper set from `https://github.com/Dexmodzz/my-background`
+run `xdg-user-dirs-update` for the new user, so the localized XDG folders exist
+before the first login seeds the Thunar side pane, and then download the default wallpaper set from `https://github.com/Dexmodzz/my-background`
 into the new user's `~/Pictures/backgrounds` when that directory is missing. A
 failed download is reported in the Kickstart log and leaves a plain background;
 it does not abort the installation.

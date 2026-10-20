@@ -239,6 +239,12 @@ printf '%s ALL=(ALL) NOPASSWD: ALL\n' "$target_user" > "$install_sudoers"
 su - "$target_user" -c "cd \"\$HOME/.local/share/kinetixos\" && $install_env dbus-run-session -- sh -c 'export DBUS_SYSTEM_BUS_ADDRESS=\$DBUS_SESSION_BUS_ADDRESS; exec ./install.sh --non-interactive --profile recommended'"
 rm -f /root/kinetixos-install-answers
 
+# Create the localized XDG user folders now, as install.sh does for the full
+# profile. The Thunar side pane seeder runs once at first login and bookmarks
+# only folders that already exist.
+su - "$target_user" -c 'xdg-user-dirs-update' ||
+	echo "XDG user folder setup failed; Thunar bookmarks may be missing." >&2
+
 # Installer ISOs always seed the default wallpaper set for the new user. A
 # failed download leaves a plain background but must not abort installation.
 su - "$target_user" -c 'mkdir -p "$HOME/Pictures" && { [ -d "$HOME/Pictures/backgrounds" ] || git clone --depth 1 https://github.com/Dexmodzz/my-background.git "$HOME/Pictures/backgrounds"; }' ||

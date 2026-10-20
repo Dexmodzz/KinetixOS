@@ -323,6 +323,19 @@ for ks in "$standard_ks" "$nvidia_ks"; do
 		printf 'Wallpaper download failure is not handled as a warning: %s\n' "$ks" >&2
 		exit 1
 	}
+	# The Thunar side pane seeder runs once at first login and needs the XDG
+	# user folders; create them for the new user before that login, and
+	# before the wallpaper download, as install.sh does for the full profile.
+	xdg_line=$(grep -n "su - \"\$target_user\" -c 'xdg-user-dirs-update'" "$ks" | cut -d: -f1 | head -n 1 || true)
+	wallpaper_line=$(grep -n 'my-background.git' "$ks" | cut -d: -f1 | head -n 1 || true)
+	[[ -n $xdg_line && -n $wallpaper_line && $xdg_line -lt $wallpaper_line ]] || {
+		printf 'Kickstart must create the XDG user folders before the wallpaper download: %s\n' "$ks" >&2
+		exit 1
+	}
+	grep -Fq 'XDG user folder setup failed; Thunar bookmarks may be missing.' "$ks" || {
+		printf 'XDG user folder failure is not handled as a warning: %s\n' "$ks" >&2
+		exit 1
+	}
 done
 
 grep -Fq 'variant=standard' "$builder"

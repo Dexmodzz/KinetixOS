@@ -53,7 +53,9 @@ consoles and Anaconda's `inst.vnc` or `inst.rdp` modes are not supported.
 The ISO builds dwm with a 60 Hz refresh rate and cursor warp off. Change the
 refresh rate later in Settings.
 
-The installer also downloads the default wallpapers into
+The installer creates your localized user folders (Documents, Pictures, Music,
+Downloads), so Thunar's side pane shows them as bookmarks from the first login.
+It also downloads the default wallpapers into
 `~/Pictures/backgrounds`. If that download fails, the background stays plain;
 add your own images to that folder, or run
 `git clone https://github.com/Dexmodzz/my-background.git ~/Pictures/backgrounds`.
