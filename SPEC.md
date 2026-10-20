@@ -198,7 +198,8 @@ The supported installation flow must:
    desktop setup.
 5. Create a missing `config.h` from guided compile-time questions, or detected
    and documented defaults for an unattended installation. Preserve an
-   existing `config.h`.
+   existing `config.h`. Cursor warp defaults to off; the guided
+   questions and `DWM_CURSORWARP=1` can enable it.
 6. Build dwm with the system compiler and detected X11 flags.
 7. Install the binary, man page, X session file, scripts, and default
    configuration.
@@ -419,7 +420,8 @@ Runtime dependencies are classified as:
   are preserved; Herdr activation and existing-system installation remain opt-in.
 - Optional: the Herdr terminal workspace, file manager, network tray, theme
   utilities, display-manager greeter customization, wallpapers, and
-  hardware-specific helpers.
+  hardware-specific helpers. The installer ISOs always download the default
+  wallpaper set (section 5.11).
 
 ### 5.9 System Health Dashboard
 
@@ -670,6 +672,34 @@ RPM Fusion NVIDIA packages, blacklist Nouveau, and configure NVIDIA DRM
 modesetting. Both variants may enable the documented third-party repositories
 needed by the selected desktop package set; choosing the dedicated image is
 the user's consent to that image policy.
+
+Both installer ISOs (`dwm-fedora.ks` and `dwm-fedora-nvidia.ks`) ask
+install questions in Kickstart `%pre`, on the machine's display console and
+before Anaconda's UI: whether to enable RPM Fusion nonfree for the Fedora
+gaming packages (default no), the interface font size (12), the primary
+modifier key (super), the default master-area ratio (0.55) and the default
+number of master windows (1). The questions use the same validation ranges as
+`scripts/configure-build.sh`, have no timeout and no bypass, and stop the
+installation if input ends before every question is answered. The Fedora
+gaming set (Steam, Gamescope, GameMode, MangoHud) is installed only on a yes;
+the declared repositories do not change. The answers feed the single dwm
+build; the ISOs always build with refresh rate 60, which users change later in
+Settings, and cursor warp off. Neither is asked. After `install.sh`, both ISOs
+run `xdg-user-dirs-update` for the new user, so the localized XDG folders exist
+before the first login seeds the Thunar side pane, and then download the default wallpaper set from `https://github.com/Dexmodzz/my-background`
+into the new user's `~/Pictures/backgrounds` when that directory is missing. A
+failed download is reported in the Kickstart log and leaves a plain background;
+it does not abort the installation.
+
+These ISOs require a screen and keyboard: a physical machine, or a virtual
+machine with a display console such as Proxmox VE (noVNC or SPICE) or a
+graphical QEMU/KVM console. Serial-only installs and Anaconda's remote modes
+(`inst.vnc`, `inst.rdp`) are unsupported.
+
+Known limitation: `scripts/build-dwm-fedora-system-image.py` installs these
+Kickstarts unattended in a headless VM, so it currently waits on the install
+questions until its timeout. The precompiled system-image path is not updated
+yet.
 
 The Fedora image currently sets SELinux to disabled. This is an explicit image
 policy and a known reduction from Fedora's default security posture. The

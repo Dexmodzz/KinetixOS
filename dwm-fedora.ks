@@ -30,11 +30,24 @@ repo --name="mwt-packages" --baseurl="https://mirror.mwt.me/shiftkey-desktop/rpm
 bootloader --location=mbr
 services --enabled=NetworkManager
 
-%pre --interpreter=/bin/sh
+%pre --interpreter=/bin/sh --erroronfail
+# Ask the KinetixOS install questions on a local console before Anaconda's UI.
+# There is no timeout: installation waits until someone answers. The gaming
+# packages are installed only when the user answers yes.
+answers=/tmp/kinetixos-install-answers
 gaming_packages=/tmp/kinetixos-gaming-packages
-case "$(uname -m)" in
-x86_64)
-	cat >"$gaming_packages" <<'EOF'
+questions=/run/install/repo/kinetixos/scripts/image/iso-questions.sh
+: >"$gaming_packages" || exit 1
+if [ ! -r "$questions" ]; then
+	echo "KinetixOS install questions are missing: $questions" >&2
+	exit 1
+fi
+sh "$questions" ask "$answers" || exit 1
+gaming=$(sh "$questions" gaming "$answers") || exit 1
+if [ "$gaming" = yes ]; then
+	case "$(uname -m)" in
+	x86_64)
+		cat >"$gaming_packages" <<'EOF' || exit 1
 steam
 gamescope
 gamemode.x86_64
@@ -42,11 +55,9 @@ gamemode.i686
 mangohud.x86_64
 mangohud.i686
 EOF
-	;;
-*)
-	: >"$gaming_packages"
-	;;
-esac
+		;;
+	esac
+fi
 %end
 
 %packages
@@ -166,6 +177,7 @@ set -eu
 install -d -m 0755 /mnt/sysimage/opt
 rm -rf /mnt/sysimage/opt/kinetixos
 cp -a /run/install/repo/kinetixos /mnt/sysimage/opt/kinetixos
+install -m 0600 /tmp/kinetixos-install-answers /mnt/sysimage/root/kinetixos-install-answers
 %end
 
 %post --erroronfail --log=/root/kinetixos-kickstart.log
@@ -214,6 +226,9 @@ rm -rf "$target_repo_dir"
 cp -a "$repo_dir" "$target_repo_dir"
 chown -R "$target_user:$target_group" "$target_repo_dir"
 
+# Validated answers from %pre; refresh rate 60 and cursor warp off are fixed.
+install_env=$(sh "$repo_dir/scripts/image/iso-questions.sh" env /root/kinetixos-install-answers)
+
 install -m 0440 /dev/null "$install_sudoers"
 printf '%s ALL=(ALL) NOPASSWD: ALL\n' "$target_user" > "$install_sudoers"
 
@@ -221,7 +236,19 @@ printf '%s ALL=(ALL) NOPASSWD: ALL\n' "$target_user" > "$install_sudoers"
 # and Gear Lever setup. Do not query the installer's host AccountsService from
 # this target chroot: it cannot resolve the newly created target user. This
 # private provisioning bus does not change the installed session's policy.
-su - "$target_user" -c 'cd "$HOME/.local/share/kinetixos" && dbus-run-session -- sh -c "export DBUS_SYSTEM_BUS_ADDRESS=\$DBUS_SESSION_BUS_ADDRESS; exec ./install.sh --non-interactive --profile recommended"'
+su - "$target_user" -c "cd \"\$HOME/.local/share/kinetixos\" && $install_env dbus-run-session -- sh -c 'export DBUS_SYSTEM_BUS_ADDRESS=\$DBUS_SESSION_BUS_ADDRESS; exec ./install.sh --non-interactive --profile recommended'"
+rm -f /root/kinetixos-install-answers
+
+# Create the localized XDG user folders now, as install.sh does for the full
+# profile. The Thunar side pane seeder runs once at first login and bookmarks
+# only folders that already exist.
+su - "$target_user" -c 'xdg-user-dirs-update' ||
+	echo "XDG user folder setup failed; Thunar bookmarks may be missing." >&2
+
+# Installer ISOs always seed the default wallpaper set for the new user. A
+# failed download leaves a plain background but must not abort installation.
+su - "$target_user" -c 'mkdir -p "$HOME/Pictures" && { [ -d "$HOME/Pictures/backgrounds" ] || git clone --depth 1 https://github.com/Dexmodzz/my-background.git "$HOME/Pictures/backgrounds"; }' ||
+	echo "Wallpaper download failed; add images to ~/Pictures/backgrounds." >&2
 
 if getent group gamemode >/dev/null 2>&1; then
 	usermod -aG gamemode "$target_user"

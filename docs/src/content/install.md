@@ -27,6 +27,39 @@ formats, Thunar for folders, and Alacritty for the terminal. Existing applicatio
 preferences are preserved; use Settings > Defaults to change them. Internet
 access is needed for later updates and additional software.
 
+### Installer ISO questions
+
+The standard and NVIDIA installer ISOs, built with
+`scripts/build-dwm-fedora-installer-iso.sh` without `--system-image`, ask a few
+questions before the graphical installer opens. Press Enter to accept the
+default shown in brackets:
+
+| Question | Default |
+|---|---|
+| Enable RPM Fusion nonfree for Fedora gaming packages? | no |
+| Interface font size | 12 |
+| Primary modifier key (`super` or `alt`) | super |
+| Default master-area ratio | 0.55 |
+| Default number of master windows | 1 |
+
+Steam, Gamescope, GameMode and MangoHud are installed only if you answer yes
+to the gaming question. The installer waits until every question is answered;
+it never continues on its own.
+
+You need a screen and keyboard: a physical machine, or a virtual machine
+console such as Proxmox VE (noVNC or SPICE) or virt-manager. Serial-only
+consoles and Anaconda's `inst.vnc` or `inst.rdp` modes are not supported.
+
+The ISO builds dwm with a 60 Hz refresh rate and cursor warp off. Change the
+refresh rate later in Settings.
+
+The installer creates your localized user folders (Documents, Pictures, Music,
+Downloads), so Thunar's side pane shows them as bookmarks from the first login.
+It also downloads the default wallpapers into
+`~/Pictures/backgrounds`. If that download fails, the background stays plain;
+add your own images to that folder, or run
+`git clone https://github.com/Dexmodzz/my-background.git ~/Pictures/backgrounds`.
+
 ### Verify the Image
 
 The image build writes a `SHA256SUMS` file next to the ISO. In that directory,

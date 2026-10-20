@@ -28,6 +28,11 @@ KVM, QEMU, OVMF, libguestfs/guestfish, zstd, xz, GNU time, pykickstart and the e
 tools. Allow space for a 50 GiB virtual disk, an uncompressed filesystem archive
 and the final artifacts. Factory provisioning requires Internet access.
 
+Known limitation: the factory step below installs `dwm-fedora.ks` or
+`dwm-fedora-nvidia.ks` unattended in a headless VM. Those Kickstarts now ask
+install questions and wait for an answer, so the factory build currently waits
+until its timeout. This path is not updated yet.
+
 ```bash
 source scripts/dwm-packages.sh
 mapfile -t factory_packages < <(dwm_packages fedora image-factory)
