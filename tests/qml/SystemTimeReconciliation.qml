@@ -11,6 +11,7 @@ ShellRoot {
     property var catalog: null
     property var prompt: null
     property bool injectArrival: false
+    property int retireTicks: 0
     property bool pendingArrival: false
     property bool done: false
     readonly property string scenario: Quickshell.env("DWM_NATIVE_ACTION_SCENARIO")
@@ -101,6 +102,11 @@ ShellRoot {
             injectArrival = true;
             model.timeReconciliation.arrived();
         } else if (stage === 4 && model.timeReconciliation.unresolved) {
+            // The model publishes "unresolved" first and retires the regional
+            // confirmation from a deferred Qt.callLater, so the first tick can
+            // see both. Wait up to 40 ticks (0.8 s) for the retirement.
+            if (model.regional.confirmation !== null && ++retireTicks < 40) return;
+            retireTicks = 0;
             check(model.timeReconciliation.reader.serial === serial + 2, "Reentrant arrivals stop after settling read");
             check(model.requestGeneration === generation, "Unresolved owner churn does not read unrelated providers");
             check(!model.regional.prepare("timezone-set", "America/Chicago"), "Unresolved reconciliation rejects mutation");

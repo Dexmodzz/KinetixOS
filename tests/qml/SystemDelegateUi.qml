@@ -10,6 +10,7 @@ ShellRoot {
     property string scenario: Quickshell.env("DWM_NATIVE_ACTION_SCENARIO")
     property bool manual: Quickshell.env("DWM_DELEGATE_UI_MANUAL") === "1"
     property int stage: 0
+    property int revealTicks: 0
     property int assertions: 0
     property bool done: false
     readonly property int accountCount: scenario === "large" ? 256 : 1
@@ -42,6 +43,20 @@ ShellRoot {
         check(target.visible && target.enabled, "Enabled action " + name);
         target.requestActivation();
     }
+    // The pane reveals a newly focused control from a deferred Qt.callLater
+    // after layout settles, so a check made on the focus tick can run before
+    // the scroll. Wait up to 40 ticks (1 s) for the reveal, then assert.
+    function revealed(card) {
+        const position = card.mapToItem(pane, 0, 0);
+        return position.y >= 0 && position.y + card.height <= pane.height + 1;
+    }
+    function awaitingReveal(card) {
+        if (root.revealed(card) || ++revealTicks >= 40) {
+            revealTicks = 0;
+            return false;
+        }
+        return true;
+    }
     function advance() {
         if (done) return;
         if (stage === 0 && !model.busy && model.operation.canStart) {
@@ -72,14 +87,15 @@ ShellRoot {
             check(model.nativeConfirmation === null && model.operation.result === null, "Cancel does not launch");
             stage = 4;
         } else if (stage === 4 && find("prepare-" + action).activeFocus) {
-            check(model.nativeConfirmation === null, "Cancel restores focus to the originating control");
             const card = find("delegate-card-" + action);
-            const position = card.mapToItem(pane, 0, 0);
-            check(position.y >= 0 && position.y + card.height <= pane.height + 1, "Originating card remains fully revealed");
+            if (awaitingReveal(card)) return;
+            check(model.nativeConfirmation === null, "Cancel restores focus to the originating control");
+            check(revealed(card), "Originating card remains fully revealed");
             click("prepare-" + action);
             stage = 2;
         } else if (stage === 2 && find("discardDelegate").activeFocus) {
             const card = find("delegateConfirmationCard");
+            if (awaitingReveal(card)) return;
             const position = card.mapToItem(pane, 0, 0);
             check(position.y >= 0 && position.y + card.height <= pane.height + 1,
                 "Confirmation keyboard focus is revealed within the viewport: y=" + position.y
