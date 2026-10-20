@@ -71,9 +71,21 @@ ShellRoot {
     }
     function checkMessageFocus(names, index, finished) {
         stage = -2;
+        // A periodic time sample or a snapshot can start between steps and
+        // disables the regional controls by design. Wait for it to settle,
+        // also before the caller's next action.
+        if (!settled()) {
+            settleRetry.next = function() { root.checkMessageFocus(names, index, finished); };
+            settleRetry.restart();
+            return;
+        }
         if (index === names.length) { finished(); return; }
         const control = find(names[index]);
-        check(control.visible && control.enabled, "Focus fixture control is available");
+        // Name the control and the model state so an intermittent failure
+        // identifies its cause from the log alone.
+        check(control.visible && control.enabled, "Focus fixture control is available: " + names[index]
+            + " (visible=" + control.visible + ", enabled=" + control.enabled + ", busy=" + model.busy
+            + ", preparing=" + model.regional.ownsPreparation() + ", timeRead=" + model.timeReconciliation.ownsRead() + ")");
         control.forceActiveFocus();
         model.regional.message = "Fixture asynchronous message for " + names[index];
         Qt.callLater(function() {
@@ -319,6 +331,12 @@ ShellRoot {
         done = true;
         console.info("Regional UI tests: PASS (" + action + "/" + scenario + ", " + assertions + " assertions)");
         Qt.quit();
+    }
+    Timer {
+        id: settleRetry
+        property var next: null
+        interval: 25
+        onTriggered: { const callback = next; next = null; if (callback !== null) callback(); }
     }
     SystemManagementModel { id: model }
     Connections {
