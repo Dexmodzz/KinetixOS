@@ -12,26 +12,30 @@ eyebrow: Start here
 
 ## Fedora ISO (Recommended for a New Installation)
 
-KinetixOS does not publish prebuilt ISO images yet. Build the standard or
-NVIDIA offline image locally from the repository; see `docs/COMPRESSED-IMAGES.md`
-and `docs/RELEASING.md`. The resulting image installs a complete Fedora 44
-x86_64 desktop from a compressed system image. Packages are included, so
-installation works without an Internet connection or software selection.
+Download the installer from the
+[latest release](https://github.com/Dexmodzz/KinetixOS/releases/latest):
 
-Use the standard image unless you need the proprietary NVIDIA driver packages.
-Both include LightDM, dwm, Quickshell, Brave Origin, Celluloid, mpv, sxiv, Thunar,
-Alacritty, Starship, Herdr, fonts, Papirus icons, Gear Lever, and `maim` with region capture and
-clipboard dependencies. Fresh accounts use Brave Origin for web browsing,
-Celluloid for its supported audio/video formats, sxiv for its supported image
-formats, Thunar for folders, and Alacritty for the terminal. Existing application
-preferences are preserved; use Settings > Defaults to change them. Internet
-access is needed for later updates and additional software.
+| File | Use it for |
+|---|---|
+| `kinetixos.iso` | Any graphics card, with the open-source drivers |
+| `kinetixos-nvidia.iso` | NVIDIA cards: adds the RPM Fusion `akmod-nvidia` driver and disables Nouveau |
+| `SHA256SUMS` | Checking that the download is complete |
+
+Use the standard ISO unless you want the proprietary NVIDIA driver. Both are
+based on the Fedora 44 Server network installer for x86_64: packages are
+downloaded from Fedora, RPM Fusion and the Brave repository during
+installation, so the computer needs a working internet connection.
+
+Both install LightDM, dwm, Quickshell, Brave Origin, Celluloid, mpv, sxiv,
+Thunar, Alacritty, fonts, Papirus icons, Gear Lever, and `maim` with region
+capture and clipboard support. New accounts use Brave Origin for web
+browsing, Celluloid for audio and video, sxiv for images, Thunar for folders,
+and Alacritty for the terminal; change them in Settings > Defaults.
 
 ### Installer ISO questions
 
-The standard and NVIDIA installer ISOs, built with
-`scripts/build-dwm-fedora-installer-iso.sh` without `--system-image`, ask a few
-questions before the graphical installer opens. Press Enter to accept the
+Both ISOs ask a few questions on a text screen before the graphical installer
+opens. Press Enter to accept the
 default shown in brackets:
 
 | Question | Default |
@@ -62,8 +66,7 @@ add your own images to that folder, or run
 
 ### Verify the Image
 
-The image build writes a `SHA256SUMS` file next to the ISO. In that directory,
-run:
+Put `SHA256SUMS` in the same folder as the ISO and run:
 
 ```sh
 sha256sum --ignore-missing -c SHA256SUMS
@@ -78,19 +81,37 @@ Your ISO must report `OK`; do not continue with a mismatch.
    the same as writing the image.
 2. Boot the USB and use the default media-test/install entry. Qualification used
    Secure Boot disabled; Secure Boot support is not verified.
-3. Select your language and keyboard, time zone, installation disk and partition
-   layout. Create your user account and select administrator access.
-4. Review the proposed disk changes and choose **Begin Installation**. The
-   compressed image provides the package set; there is no installation-source
-   or software-selection step and no network connection is required.
-5. Once installation finishes, reboot and remove the USB. Log in through LightDM
-   using the **dwm** session. The desktop is already installed; you do not need to
-   run the existing-system installer below.
+3. Answer the [installer questions](#installer-iso-questions) on the text
+   screen.
+4. In the graphical installer, select your language and keyboard, time zone,
+   installation disk and partition layout. Create your user account and select
+   administrator access. The installation source and package set are already
+   configured.
+5. Review the proposed disk changes and choose **Begin Installation**.
+   Installation downloads the packages, then runs the KinetixOS installer for
+   your user; this takes longer than a plain Fedora install.
+6. Once installation finishes, reboot and remove the USB. The system boots to
+   the LightDM login screen; log in with the **dwm** session. The desktop is
+   already installed; you do not need to run the existing-system installer
+   below.
 
 `Super` is usually the Windows key. Open Thunar with `Super+E`, open a terminal
-with `Super+X`, take a full
-screenshot with `Super+P`, select a region with `Super+Shift+P`, or copy a region
-to the clipboard with `Super+Ctrl+P`.
+with `Super+X`, take a screenshot of the active monitor with `Super+P`, select
+a region with `Super+Shift+P`, or copy a region to the clipboard with
+`Super+Ctrl+P`.
+
+### Disk layout
+
+Both installer ISOs default to regular partitions with `/home` as an
+ordinary directory on the root (`/`) filesystem, sharing its free space. The XFS root partition grows to use the selected
+drive's available capacity after boot partitions, without the Fedora Server
+automatic-layout size cap. Anaconda
+creates the boot partitions required by BIOS or UEFI. Select the intended
+installation drive in Anaconda and review any destructive storage changes before
+confirming. Fedora Anaconda may initially select every attached disk when
+loading Kickstart: deselect all drives you do not intend to install onto. The
+public profiles do not authorize disk erasure or bypass storage review. Custom
+partitioning remains available for a different layout.
 
 ## Manual Install
 
@@ -145,29 +166,7 @@ units are disabled from early startup but otherwise preserved.
 System files are installed with `sudo`, while configuration and data under the
 user's XDG directories are installed as that user.
 
-If a v0.6.0 Fedora image left the default XDG parents owned by root, first
-verify that none of them is a symbolic link, then repair only those parents and
-rerun the installer:
-
-```bash
-xdg_parents=()
-for path in "$HOME/.local" "$HOME/.local/share" "$HOME/.config"; do
-    test ! -L "$path" || {
-        printf 'Refusing symbolic link: %s\n' "$path" >&2
-        exit 1
-    }
-    test -e "$path" || continue
-    test -d "$path" || { printf 'Refusing non-directory: %s\n' "$path" >&2; exit 1; }
-    xdg_parents+=("$path")
-done
-((${#xdg_parents[@]} == 0)) || sudo chown "$(id -u):$(id -g)" -- "${xdg_parents[@]}"
-./install.sh
-```
-
-This repair is intentionally non-recursive so it does not change unrelated
-user files.
-
-Every profile and Fedora image defaults to Alacritty without Herdr. With the
+Every profile and installer ISO defaults to Alacritty without Herdr. With the
 explicit `--install-herdr` option, the repository downloads the official
 `https://herdr.dev/install.sh` into an isolated staging directory and verifies
 repository-pinned SHA-256 checksums for both that installer and its resulting
@@ -194,15 +193,12 @@ Installer package profiles are selected with `DWM_INSTALL_PROFILE`:
 - `recommended`: `core` plus the recommended desktop layer such as Quickshell,
   Picom, Feh, Dex, fonts, theming, screenshot, audio, Bluetooth control and
   tray tools, brightness tools, Flatpak, the GTK desktop portal, PackageKit,
-  AccountsService, CUPS, and the Fedora printer configuration tool. These
-  system services are prerequisites for the planned Phase 6 Settings update,
-  account-summary, and printer entry points. The profile also adds Flathub for
+  AccountsService, CUPS, and the Fedora printer configuration tool, which
+  Settings > System uses for updates, accounts, and printers. The profile also adds Flathub for
   the target user, installs Gear Lever as the default AppImage manager, installs
   the available Fedora GTK theme packages, and installs Nordic system-wide for
   the default Nord theme. Source-checkout synchronization does not infer this
-  profile from independently installed programs. Existing installations must
-  rerun the recommended or full installer to add the Phase 6 PackageKit,
-  Python RPM binding, AccountsService, CUPS, and printer-tool packages.
+  profile from independently installed programs.
 - `full`: `recommended` plus optional extras such as Thunar with SMB-share
   browsing, network tray utilities, keyring login integration,
   wallpapers, and display-manager setup. x86_64 Fedora full installs also
@@ -212,11 +208,10 @@ Installer package profiles are selected with `DWM_INSTALL_PROFILE`:
   Fedora, then adds the invoking user to the `gamemode`
   group; log out and back in before using its privileged tuning helpers.
 
-The default is `full` to preserve the historical automated installer behavior.
-Existing source-checkout installations upgrading into Phase 6 should rerun
-`./install.sh --profile recommended` (or `full`) to install the new system
-management packages; a dry run previews the added packages first. The update
-does not remove packages or alter the host SELinux policy.
+The default is `full`. To add packages that a newer version needs to an
+existing installation, rerun `./install.sh --profile recommended` (or `full`);
+a dry run previews the added packages first. The installer does not remove
+packages or alter the host SELinux policy.
 If `maim` is unavailable in the enabled Fedora repositories, the installer
 skips that add-on instead of failing the desktop install and reports that the
 screenshot hotkeys are unavailable.
@@ -422,6 +417,13 @@ separate operation in Settings; follow its recorded transaction guidance.
 
 **Display manager** (SDDM, GDM, LightDM): log out and select **dwm** from the session list.
 
+**startx:**
+```bash
+startx
+```
+
+The provided `.xinitrc` disables screen blanking, starts the configured Quickshell panel, and runs dwm.
+
 With LightDM, a connected external monitor is the only, primary display from
 the login screen onward, so a laptop can stay closed and work as a desktop. The
 lid switch suspends the laptop only when no external monitor is connected.
@@ -436,7 +438,10 @@ step; after the first X11 login, run:
 dwm-display-setup
 ```
 
-The installed Settings display provider is machine-oriented. Its actions are:
+### Display and input helpers (advanced)
+
+Settings uses these command-line providers; you normally do not run them by
+hand. The display provider's actions are:
 
 ```text
 dwm-settings-display discover
@@ -484,13 +489,6 @@ duplicate replay workers. Kept values default to
 `DWM_INPUT_SETTINGS_FILE` to use a different file. The normal session startup
 invokes `apply-saved` idempotently and runs `watch-apply` to debounce input
 hotplug events before replaying saved values for returning devices.
-
-**startx:**
-```bash
-startx
-```
-
-The provided `.xinitrc` disables screen blanking, starts the configured Quickshell panel, and runs dwm.
 
 ## Minimal Session Profile
 
@@ -541,9 +539,8 @@ Commands such as `dwm-terminal -e sh -c 'command'` always bypass Herdr.
 Recommended and full installs install the Fedora Flatpak package before
 configuring the official Flathub remote for the target user. Gear Lever
 setup verifies the remote matching an existing app, or prepares the user remote
-before a new installation. Preinstalled system apps use the existing system
-remote so fresh image account setup remains offline. Factory images
-perform the same checks in system scope before installing Flatpak apps. Repeated
+before a new installation. Flatpak apps already installed system-wide keep
+using the existing system remote. Repeated
 setup preserves existing apps and remotes; an unreadable, disabled, or conflicting
 Flathub remote stops dependent installs with an error.
 
@@ -551,16 +548,3 @@ After resolving a setup failure, retry `scripts/install-gearlever` from the
 source checkout. To prepare the user remote independently, run
 `scripts/dwm-flatpak-setup --user`. If Flatpak is missing, rerun
 `./install.sh --profile recommended` first.
-
-### Default image storage layout
-
-Both Fedora image variants default to regular partitions with `/home` as an
-ordinary directory on the root (`/`) filesystem, sharing its free space. The XFS root partition grows to use the selected
-drive's available capacity after boot partitions, without the Fedora Server
-automatic-layout size cap. Anaconda
-creates the boot partitions required by BIOS or UEFI. Select the intended
-installation drive in Anaconda and review any destructive storage changes before
-confirming. Fedora Anaconda may initially select every attached disk when
-loading Kickstart: deselect all drives you do not intend to install onto. The
-public profiles do not authorize disk erasure or bypass storage review. Custom
-partitioning remains available for a different layout.
