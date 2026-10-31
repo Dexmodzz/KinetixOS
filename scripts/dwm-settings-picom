@@ -32,6 +32,31 @@ MAX_IMPORT_BYTES = MAX_IMPORT_FILES * MAX_SIZE
 BACKENDS = ("auto", "xrender", "glx", "egl")
 BEGIN = "# kinetixos opacity defaults begin"
 END = "# kinetixos opacity defaults end"
+STYLE_BEGIN = "# kinetixos theme style begin"
+STYLE_END = "# kinetixos theme style end"
+STYLE_RULES_BEGIN = "# kinetixos theme style rules begin"
+STYLE_RULES_END = "# kinetixos theme style rules end"
+# Global options the theme style block owns. A user value for any of them
+# outside the block takes precedence, and the block is then not written.
+STYLE_KEYS = (
+    "corner-radius",
+    "shadow",
+    "shadow-radius",
+    "shadow-opacity",
+    "shadow-offset-x",
+    "shadow-offset-y",
+)
+STYLE_LEGACY_KEYS = ("rounded-corners-exclude", "shadow-exclude")
+# The shell draws its own bar islands and panel popups. Quickshell windows set
+# no WM_CLASS, so they are matched as the bar (a dock) and as override-redirect
+# popups without a class; application menus keep theirs. Shell windows dwm
+# manages (the launcher, Settings, ...) are titled "dwm ..." as in
+# window-rules.toml and carry a dwm border: Picom rounds them, border included,
+# and gives them a shadow that follows those corners.
+SHELL_MATCH = "window_type = 'dock' || (override_redirect && !class_g)"
+MANAGED_SHELL_MATCH = (
+    "window_type = 'normal' && !override_redirect && !class_g && name ^= 'dwm '"
+)
 
 
 class Error(Exception):
@@ -477,18 +502,113 @@ class Configuration:
         )
         return {doc.path: doc.text[:start] + text + doc.text[end:]}
 
+    def style_changes(self, style):
+        """Write, replace or (style None) remove the theme style blocks."""
+        root = self.docs[self.path]
+        uses_rules = "rules" in self.entries
+        own = managed_block(root.text, STYLE_BEGIN, STYLE_END, "theme style")
+        # A configuration with nothing but the theme block gets a rules list, so
+        # the launcher can keep its own corner radius. Existing configurations
+        # keep their format: rules disable the legacy active/inactive opacity.
+        fresh = len(self.docs) == 1 and all(
+            own and doc is root and own[0] < entry[0] < own[1]
+            for doc, entry in self.entries.values()
+        )
+        markers = (
+            (STYLE_BEGIN, STYLE_END),
+            (STYLE_RULES_BEGIN, STYLE_RULES_END),
+        )
+        for doc in self.docs.values():
+            if doc.path != root.path and any(
+                m in doc.text for pair in markers for m in pair
+            ):
+                raise Error(
+                    "Theme style markers must stay in the root Picom configuration"
+                )
+        if uses_rules and self.entries["rules"][0].path != root.path:
+            raise Error(
+                "Theme style needs the rules list in the root Picom configuration"
+            )
+        if style is not None:
+            owned = STYLE_KEYS if uses_rules else STYLE_KEYS + STYLE_LEGACY_KEYS
+            block = own
+            for key in owned:
+                if key not in self.entries:
+                    continue
+                doc, entry = self.entries[key]
+                if not (doc is root and block and block[0] < entry[0] < block[1]):
+                    raise Error(
+                        f"Custom Picom setting '{key}' takes precedence over the theme style"
+                    )
+        text = root.text
+        for begin, end_marker in markers:
+            block = managed_block(text, begin, end_marker, "theme style")
+            if not block:
+                continue
+            start, end = block[0], block[1]
+            if end < len(text) and text[end] == "\n":
+                end += 1
+            if start > 0 and text[start - 1] == "\n":
+                start -= 1
+            text = text[:start] + text[end:]
+        if style is not None:
+            if fresh and not uses_rules:
+                text = "rules = (\n);\n" + text.lstrip("\n")
+                uses_rules = True
+            if uses_rules:
+                start, end = Document(root.path, text).entries["rules"][:2]
+                rules = style_rules_text(style, bool(tokens(text[start + 1 : end - 1])))
+                text = text[: start + 1] + rules + text[start + 1 :]
+            if text and not text.endswith("\n"):
+                text += "\n"
+            text += ("\n" if text else "") + style_global_text(style, not uses_rules)
+        return {root.path: text} if text != root.text else {}
 
-def managed_block(text):
-    if BEGIN not in text and END not in text:
+
+def managed_block(text, begin=BEGIN, end_marker=END, label="opacity"):
+    if begin not in text and end_marker not in text:
         return None
     if (
-        text.count(BEGIN) != 1
-        or text.count(END) != 1
-        or text.index(END) < text.index(BEGIN)
+        text.count(begin) != 1
+        or text.count(end_marker) != 1
+        or text.index(end_marker) < text.index(begin)
     ):
-        raise Error("Malformed managed Picom opacity markers")
-    start, end = text.index(BEGIN), text.index(END) + len(END)
+        raise Error(f"Malformed managed Picom {label} markers")
+    start, end = text.index(begin), text.index(end_marker) + len(end_marker)
     return start, end, text[start:end]
+
+
+def style_rules_text(style, trailing_comma):
+    """Rules entries for configurations that use Picom's rules list."""
+    comma = "," if trailing_comma else ""
+    return (
+        f"\n{STYLE_RULES_BEGIN}\n"
+        f"{{ match = {json.dumps(SHELL_MATCH)}; shadow = false; corner-radius = 0; }},\n"
+        f"{{ match = {json.dumps(MANAGED_SHELL_MATCH)}; shadow = true; "
+        f"corner-radius = {style['popup_radius']}; }}{comma}\n{STYLE_RULES_END}\n"
+    )
+
+
+def style_global_text(style, legacy_excludes):
+    shadow_radius = style["shadow_radius"]
+    lines = [
+        STYLE_BEGIN,
+        f"corner-radius = {style['corner_radius']};",
+        "shadow = true;",
+        f"shadow-radius = {shadow_radius};",
+        f"shadow-opacity = {style['shadow_opacity'] / 100:g};",
+        # Picom offsets the blurred shadow by its radius; keep it centred
+        # horizontally and push it down by the requested offset.
+        f"shadow-offset-x = {-shadow_radius};",
+        f"shadow-offset-y = {-shadow_radius + style['shadow_offset_y']};",
+    ]
+    if legacy_excludes:
+        lines += [
+            f"rounded-corners-exclude = [ {json.dumps(SHELL_MATCH)} ];",
+            f"shadow-exclude = [ {json.dumps(SHELL_MATCH)} ];",
+        ]
+    lines.append(STYLE_END)
+    return "\n".join(lines) + "\n"
 
 
 def splice(text, edits):
@@ -929,12 +1049,14 @@ def mutate(action, args, revision):
             raise Error("Picom configuration changed; refresh before editing")
         if not shutil.which("picom"):
             raise Error("Picom is not installed")
-        if any(
+        if action != "theme-style" and any(
             option(p["args"], ("--active-opacity", "--inactive-opacity", "-i"))
             for p in processes()
         ):
             raise Error("Remove command-line opacity overrides before editing")
-        if action == "set-opacity":
+        if action == "theme-style":
+            changes = config.style_changes(args[0])
+        elif action == "set-opacity":
             if any(not math.isfinite(v) or not 0 <= v <= 100 for v in args):
                 raise Error("Opacity must be between 0 and 100 percent")
             changes = config.opacity_changes(*(v / 100 for v in args))
@@ -1157,6 +1279,46 @@ def watch():
         print("changed", flush=True)
 
 
+STYLE_ARGS = (
+    ("corner_radius", 0, 64),
+    ("popup_radius", 0, 64),
+    ("shadow_radius", 0, 128),
+    ("shadow_opacity", 0, 100),
+    ("shadow_offset_y", 0, 64),
+)
+
+
+def apply_theme_style(values):
+    """Follow the active theme: write its style block, or remove it.
+
+    Called by theme-apply.sh. The block is derived from the active theme alone,
+    so switching themes or rolling one back always converges on the right file.
+    """
+    if not shutil.which("picom"):
+        return "Picom is not installed"
+    style = None
+    if values:
+        style = {}
+        for (name, low, high), raw in zip(STYLE_ARGS, values):
+            if not low <= raw <= high:
+                raise Error(f"{name} must be between {low} and {high}")
+            style[name] = raw
+    config = Configuration()
+    if style is None and not any(
+        STYLE_BEGIN in d.text or STYLE_END in d.text for d in config.docs.values()
+    ):
+        return "No theme style to remove"
+    user_roots = (config_home() / "picom.conf", config_home() / "picom/picom.conf")
+    if config.path not in user_roots and not os.environ.get("DWM_PICOM_CONFIG"):
+        if style is None:
+            return "No theme style to remove"
+        # Vendor configuration: import it first, exactly as a Settings edit would,
+        # so the theme never writes outside the user's own configuration.
+        mutate("copy-config", [], config.revision())
+        config = Configuration()
+    return mutate("theme-style", [style], config.revision())
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     subs = parser.add_subparsers(dest="action", required=True)
@@ -1171,11 +1333,24 @@ def main():
     selector.add_argument("revision")
     copy = subs.add_parser("copy-config")
     copy.add_argument("revision")
+    theme_style = subs.add_parser("apply-theme-style")
+    theme_style.add_argument(
+        "values",
+        nargs="*",
+        type=int,
+        help="corner-radius popup-radius shadow-radius shadow-opacity "
+        "shadow-offset-y; no values removes the theme style",
+    )
     args = parser.parse_args()
     if args.action == "status":
         print(json.dumps(status()))
     elif args.action == "watch":
         watch()
+    elif args.action == "apply-theme-style":
+        if args.values and len(args.values) != len(STYLE_ARGS):
+            parser.error(f"apply-theme-style takes {len(STYLE_ARGS)} values or none")
+        detail = apply_theme_style(args.values)
+        print(json.dumps({**status(), "message": detail}))
     elif args.action in ("set-opacity", "set-backend", "copy-config"):
         values = (
             [args.active, args.inactive]

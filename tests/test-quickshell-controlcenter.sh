@@ -646,7 +646,13 @@ if grep -Fq 'visible: root.state.batteryAvailable' "$repo/config/quickshell/pane
 fi
 grep -Fq 'root.batteryAvailable = true;' "$repo/config/quickshell/state/DwmState.qml"
 grep -Fq 'trimmed.indexOf("BAT ") === 0' "$repo/config/quickshell/state/DwmState.qml"
-grep -Fq 'color: Theme.barBackground' "$repo/config/quickshell/panel/DwmPanel.qml"
+# The panel stays opaque. Only a style with bar islands may show the wallpaper
+# between them, and only while a compositor can draw transparent pixels.
+grep -Fq 'color: Theme.barIslandsTransparent ? Theme.transparent : Theme.barBackground' \
+	"$repo/config/quickshell/panel/DwmPanel.qml"
+grep -Fq 'readonly property bool barIslandsTransparent: styleBarIslands && compositorActive' \
+	"$repo/config/quickshell/core/Theme.qml"
+grep -Fq 'color: Theme.barBackground' "$repo/config/quickshell/panel/PanelIsland.qml"
 grep -Fq 'aboveWindows: root.state.fullscreenMonitorIndexes.indexOf(' \
 	"$repo/config/quickshell/panel/DwmPanel.qml"
 grep -Fq 'root.state.screenIndex(root.screen)) === -1' \

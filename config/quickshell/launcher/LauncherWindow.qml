@@ -29,6 +29,7 @@ FloatingWindow {
     }
 
     ShellSurface {
+        managedWindow: true
         anchors.fill: parent
 
         ColumnLayout {
@@ -39,7 +40,7 @@ FloatingWindow {
                 Layout.fillWidth: true
                 eyebrow: "Application index"
                 title: "Applications"
-                subtitle: "Type to filter / Enter to launch / Esc to close"
+                subtitle: Theme.styleLauncherFooter ? "" : "Type to filter / Enter to launch / Esc to close"
                 status: root.launcherModel.status
                 statusColor: Theme.accent
             }
@@ -47,15 +48,27 @@ FloatingWindow {
             Rectangle {
                 Layout.fillWidth: true
                 Layout.preferredHeight: Theme.largeSurfaceSearchHeight
-                color: launcherSearch.activeFocus ? Theme.controlFocusFill : Theme.controlNormalFill
+                color: Theme.softStyle ? Theme.surfaceInput
+                    : launcherSearch.activeFocus ? Theme.controlFocusFill : Theme.controlNormalFill
                 border.color: launcherSearch.activeFocus ? Theme.controlFocusBorder : Theme.controlNormalBorder
-                border.width: launcherSearch.activeFocus ? Theme.controlFocusBorderWidth : Theme.controlBorderWidth
+                border.width: launcherSearch.activeFocus ? Theme.inputFocusBorderWidth : Theme.controlBorderWidth
                 radius: Theme.largeSurfaceCardRadius
+
+                IconText {
+                    anchors.left: parent.left
+                    anchors.leftMargin: 14
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: Theme.softStyle
+                    text: "󰍉"
+                    color: launcherSearch.activeFocus ? Theme.accent : Theme.menuMutedText
+                    font.pixelSize: Theme.panelIconFontSize
+                }
 
                 UiText {
                     anchors.left: parent.left
                     anchors.leftMargin: 14
                     anchors.verticalCenter: parent.verticalCenter
+                    visible: !Theme.softStyle
                     text: "/"
                     color: launcherSearch.activeFocus ? Theme.menuActionText : Theme.menuMutedText
                     font.bold: true
@@ -172,6 +185,15 @@ FloatingWindow {
                     selected: index === root.launcherModel.selectedIndex
                     launcherModel: root.launcherModel
                 }
+            }
+
+            UiText {
+                Layout.fillWidth: true
+                visible: Theme.styleLauncherFooter
+                horizontalAlignment: Text.AlignHCenter
+                text: "↑↓ select  ·  ⏎ launch  ·  esc close"
+                color: Theme.menuMutedText
+                font.pixelSize: Theme.fontCaptionSize
             }
         }
     }

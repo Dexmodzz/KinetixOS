@@ -134,7 +134,14 @@ The managed shell requires Quickshell 0.3.0 or Fedora 44's compatible
 not sufficient. Anchored control popups
 must close on Escape and on a click outside their visible card under X11.
 Visible shell surfaces must be opaque and follow the active theme selected in
-the user `themes.toml` file.
+the user `themes.toml` file. A theme may select an optional style profile
+(`style = "NAME"` with a `[style.NAME]` section in the same file) that supplies
+shell radii, bar height and margins, bar islands, accent transparency, the
+shell font, dwm gaps and border width, and Picom corners and shadows. Themes
+without one keep the classic geometry, and an invalid or missing profile falls
+back to it. A bar with islands keeps each island opaque; the space between
+islands is transparent only while a compositor runs, and otherwise the bar is
+one opaque strip. Popup corners are rounded only while a compositor runs.
 
 ### 5.3 Session Startup
 
@@ -635,7 +642,14 @@ independent of process polling. Active and inactive window opacity are global
 0-100 percent settings, saved on slider release (keyboard edits debounce for
 250 ms). Theme application reapplies current values without storing them in
 individual themes or overwriting them during theme rollback. Custom window
-rules retain precedence over managed defaults.
+rules retain precedence over managed defaults. The one theme-owned exception is
+a marked block holding the active style profile's corner radius and shadows
+(`apply-theme-style`): theme application writes it for a theme with a style
+profile and removes it otherwise, so switching or rolling back a theme always
+converges on the active theme. A user value for any option the block would set
+takes precedence, and the block is then not written. A missing user
+configuration is created, or a vendor configuration imported, exactly as for
+an opacity edit.
 
 The unprivileged `dwm-settings-picom` JSON protocol version 1 supplies `status`,
 `watch`, `set-opacity ACTIVE INACTIVE REVISION`, `set-backend BACKEND REVISION`,

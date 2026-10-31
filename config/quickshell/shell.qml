@@ -109,6 +109,8 @@ ShellRoot {
 
     DwmState {
         id: dwmState
+        onCompositorActiveChanged: Theme.compositorActive = compositorActive
+        Component.onCompleted: Theme.compositorActive = compositorActive
     }
 
     ClockModel {

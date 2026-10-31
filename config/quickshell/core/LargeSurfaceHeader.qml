@@ -15,6 +15,7 @@ RowLayout {
     spacing: Theme.spacingHuge
 
     Rectangle {
+        visible: !Theme.softStyle
         Layout.preferredWidth: 4
         Layout.preferredHeight: Theme.scaledSize(50)
         color: root.statusColor
@@ -59,8 +60,8 @@ RowLayout {
         visible: root.status.length > 0
         implicitWidth: headerStatus.implicitWidth + (Theme.controlPaddingX * 2)
         implicitHeight: Theme.pillHeight
-        color: Theme.controlNormalFill
-        border.color: root.statusColor
+        color: Theme.softStyle ? Theme.accentSoft : Theme.controlNormalFill
+        border.color: Theme.softStyle ? Theme.borderSubtle : root.statusColor
         border.width: Theme.controlBorderWidth
         radius: Theme.pillRadius
         Layout.alignment: Qt.AlignVCenter

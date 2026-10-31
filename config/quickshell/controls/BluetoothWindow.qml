@@ -20,7 +20,7 @@ ClickAwayPopup {
     popupX: panelWindow
         ? Math.max(Theme.rowSpacing, panelWindow.width - cardWidth - Theme.rowSpacing)
         : Theme.rowSpacing
-    popupY: Theme.panelHeight
+    popupY: Theme.panelWindowHeight
     onDismissed: bluetoothModel.close()
 
     onVisibleChanged: if (!visible) root.bluetoothModel.close()

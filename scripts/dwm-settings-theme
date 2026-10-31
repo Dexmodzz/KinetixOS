@@ -70,6 +70,7 @@ usage: dwm-settings-theme preview TOKEN SECONDS THEME
        dwm-settings-theme personalize-reset {font|text-size|cursor|icon|gtk|qt}
        dwm-settings-theme personalize-repair
        dwm-settings-theme recover
+       dwm-settings-theme merge-shipped
        dwm-settings-theme recovery-status
        dwm-settings-theme mutation-ready
        dwm-settings-theme personalization-ready
@@ -2495,6 +2496,101 @@ recovery_status() {
 	fi
 }
 
+# Print the [theme.X] and [style.X] names defined in a themes file, one per line.
+theme_file_sections() {
+	awk '
+		{
+			line = $0
+			sub(/[[:space:]]*#.*/, "", line)
+			gsub(/^[[:space:]]+|[[:space:]]+$/, "", line)
+		}
+		line ~ /^\[(theme|style)\.[A-Za-z0-9._-]+\]$/ { print substr(line, 2, length(line) - 2) }
+	' "$1"
+}
+
+# Print the named sections of the managed file, each with the comment lines
+# directly above its header and without the trailing blank or banner lines
+# that belong to the next section.
+shipped_section_text() {
+	awk -v wanted="$1" '
+		{ lines[NR] = $0 }
+		END {
+			n = split(wanted, names, "\n")
+			for (i = 1; i <= n; i++) want["[" names[i] "]"] = 1
+			for (i = 1; i <= NR; i++) {
+				header = lines[i]
+				sub(/[[:space:]]*#.*/, "", header)
+				gsub(/^[[:space:]]+|[[:space:]]+$/, "", header)
+				if (header ~ /^\[/) heads[++h] = i
+				if (header in want) start[i] = 1
+			}
+			for (k = 1; k <= h; k++) {
+				i = heads[k]
+				if (!(i in start)) continue
+				first = i
+				while (first > 1 && lines[first - 1] ~ /^#/ && lines[first - 1] !~ /══/) first--
+				last = (k < h ? heads[k + 1] - 1 : NR)
+				while (last > i && (lines[last] ~ /^[[:space:]]*$/ || lines[last] ~ /^[[:space:]]*#/)) last--
+				printf "\n"
+				for (j = first; j <= last; j++) print lines[j]
+			}
+		}
+	' "$managed_themes_file"
+}
+
+# Existing installations keep their own themes.toml. Append the shipped theme
+# and style sections it lacks, so new themes appear in Appearance, without
+# touching the active theme or any section the user already has.
+merge_shipped() {
+	local existing missing name candidate backup stamp snapshot
+	local -a missing_names=()
+	acquire_lock
+	ensure_recovery_dir
+	validate_managed_theme_file
+	if [[ ! -e $themes_file && ! -L $themes_file ]]; then
+		printf 'appearance-action-protocol\t1\t0\nresult\tmanaged\n'
+		return
+	fi
+	[[ -f $themes_file && ! -L $themes_file && $(stat -c %u -- "$themes_file") == "$UID" ]] ||
+		die "user theme file is not a regular file owned by this user: $themes_file"
+	[[ $(stat -c %s -- "$themes_file") -le $max_themes_size ]] || die 'user theme file is too large'
+	[[ ! -f $transaction_prefix.meta ]] ||
+		die 'an interrupted theme transaction must be recovered first'
+	[[ ! -f $preview_current ]] || die 'a theme preview is active; keep or revert it first'
+	existing=$(theme_file_sections "$themes_file")
+	while IFS= read -r name; do
+		[[ -n $name ]] || continue
+		grep -Fqx -- "$name" <<<"$existing" || missing_names+=("$name")
+	done < <(theme_file_sections "$managed_themes_file")
+	if ((${#missing_names[@]} == 0)); then
+		printf 'appearance-action-protocol\t1\t0\nresult\tcurrent\n'
+		return
+	fi
+	missing=$(printf '%s\n' "${missing_names[@]}")
+	candidate=$(mktemp -- "$themes_file.merge.XXXXXX")
+	cp -p -- "$themes_file" "$candidate"
+	stamp=$(date +%Y-%m-%d)
+	{
+		[[ -z $(tail -c 1 -- "$themes_file") ]] || printf '\n'
+		printf '\n# Added by the KinetixOS installer on %s: shipped themes and styles\n' "$stamp"
+		printf '# that this file did not define yet. Existing sections are unchanged.\n'
+		shipped_section_text "$missing"
+	} >>"$candidate"
+	# The runtime parser has a fixed entry budget; never publish a file that
+	# dwm or the shell would only read partially.
+	snapshot=$(DWM_APPEARANCE_THEMES_FILE=$candidate "$appearance_helper" snapshot 2>/dev/null) || true
+	if ! grep -q $'^appearance-protocol\t1\t0$' <<<"$snapshot" ||
+		grep -Eq $'^error\tparser\t(entry-limit|unsupported-complex-value|line-too-long)' <<<"$snapshot"; then
+		rm -f -- "$candidate"
+		die 'shipped themes do not fit in the user theme file; add them by hand'
+	fi
+	backup=$recovery_dir/themes.toml.before-merge.$(date +%Y%m%dT%H%M%S)
+	cp -p -- "$themes_file" "$backup"
+	mv -f -- "$candidate" "$themes_file"
+	printf 'appearance-action-protocol\t1\t0\nresult\tmerged\t%s\t%s\n' \
+		"$(clean_field "${missing_names[*]}")" "$(clean_field "$backup")"
+}
+
 recover_transaction() {
 	local expected restore_status=0
 	acquire_lock
@@ -2548,6 +2644,10 @@ personalize-repair)
 recover)
 	[[ $# == 1 ]] || die 'recover takes no arguments'
 	recover_transaction
+	;;
+merge-shipped)
+	[[ $# == 1 ]] || die 'merge-shipped takes no arguments'
+	merge_shipped
 	;;
 recovery-status)
 	[[ $# == 1 ]] || die 'recovery-status takes no arguments'

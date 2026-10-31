@@ -8,25 +8,37 @@ Rectangle {
     required property string label
     required property bool selected
     required property bool occupied
+    // Soft style: the active tag is a wider accent pill, occupied tags use the
+    // main text color, and empty tags fade to the faint text color.
+    property bool soft: false
     signal clicked()
 
-    Layout.preferredWidth: Theme.workspaceButtonSize
+    Layout.preferredWidth: soft && selected ? Theme.workspaceButtonSize * 2 : Theme.workspaceButtonSize
     Layout.preferredHeight: Theme.workspaceButtonSize
-    radius: Theme.smallRadius
-    color: selected ? Theme.controlSelectedFill
+    radius: soft ? Theme.pillRadius : Theme.smallRadius
+    color: soft ? (selected ? Theme.accent
+            : workspaceMouse.containsMouse ? Theme.accentSoft : Theme.transparent)
+        : selected ? Theme.controlSelectedFill
         : workspaceMouse.containsMouse ? Theme.controlHoverFill : Theme.transparent
     border.color: selected ? Theme.controlSelectedBorder
         : workspaceMouse.containsMouse ? Theme.controlHoverBorder : Theme.transparent
-    border.width: selected || workspaceMouse.containsMouse ? Theme.pillBorderWidth : 0
+    border.width: !soft && (selected || workspaceMouse.containsMouse) ? Theme.pillBorderWidth : 0
+
+    Behavior on Layout.preferredWidth {
+        NumberAnimation { duration: Theme.animationNormal }
+    }
 
     Text {
         anchors.centerIn: parent
         text: root.label
-        color: root.selected ? Theme.controlSelectedText
+        color: root.soft ? (root.selected ? Theme.accentText
+                : root.occupied || workspaceMouse.containsMouse ? Theme.text : Theme.textFaint)
+            : root.selected ? Theme.controlSelectedText
             : workspaceMouse.containsMouse ? Theme.controlHoverText : Theme.textMuted
         font.family: Theme.fontFamily
         font.pixelSize: Theme.panelFontSize
-        font.bold: root.selected
+        font.weight: root.soft ? (root.selected ? Theme.styleFontWeightStrong : Theme.styleFontWeight)
+            : (root.selected ? Font.Bold : Font.Normal)
         verticalAlignment: Text.AlignVCenter
     }
 

@@ -559,6 +559,8 @@ Scope {
         const colors = {};
         const integrations = [];
         const errors = [];
+        let styleName = "classic";
+        const styleValues = {};
 
         for (const line of text.trim().split("\n")) {
             if (line.length === 0) continue;
@@ -591,6 +593,12 @@ Scope {
             } else if (fields[0] === "color" && fields.length === 4
                     && root.validColor(fields[2])) {
                 colors[fields[1]] = fields[2];
+            } else if (fields[0] === "style" && fields.length === 3
+                    && root.validThemeName(fields[1])) {
+                styleName = fields[1];
+            } else if (fields[0] === "style-value" && fields.length === 3
+                    && /^[a-z_]{1,32}$/.test(fields[1])) {
+                styleValues[fields[1]] = fields[2];
             } else if (fields[0] === "integration" && fields.length === 5
                     && root.validState(fields[2])) {
                 integrations.push({
@@ -632,6 +640,9 @@ Scope {
                 }
             }
             Theme.applyAppearanceColors(colors, darkMode);
+            if (typeof styleValues.font_family === "string")
+                styleValues.font_family = root.installedStyleFont(styleValues.font_family);
+            Theme.applyStyle(styleName, styleName === "classic" ? {} : styleValues);
         }
     }
 
@@ -836,6 +847,16 @@ Scope {
                 matched = installed;
         }
         return matched || family;
+    }
+
+    // Style fonts may be missing (download failed, minimal profile). Fall back
+    // to Inter, then to the fontconfig sans-serif alias.
+    function installedStyleFont(family) {
+        const installed = Qt.fontFamilies();
+        for (const candidate of [family, "Inter"]) {
+            if (installed.indexOf(candidate) >= 0) return candidate;
+        }
+        return "sans-serif";
     }
 
     function applySharedTypography() {

@@ -22,6 +22,7 @@ FloatingWindow {
 
     ShellSurface {
         id: historySurface
+        managedWindow: true
 
         anchors.fill: parent
         margin: Theme.largeSurfaceMargin

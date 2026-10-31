@@ -14,6 +14,9 @@ Scope {
     property string activeWindowTitle: "Desktop"
     property string activeWindowClass: "application-x-executable"
     property string statusText: ""
+    // True while a compositor runs. Only then can the bar show the wallpaper
+    // between its islands; without one transparent pixels render black.
+    property bool compositorActive: false
     property var statusSegments: []
     property bool batteryAvailable: false
     property int batteryPercent: 0
@@ -73,6 +76,8 @@ Scope {
                 root.activeWindowTitle = value.length > 0 ? value : "Desktop";
             } else if (key === "class") {
                 root.activeWindowClass = value.length > 0 ? value : "application-x-executable";
+            } else if (key === "compositor") {
+                root.compositorActive = value === "1";
             } else if (key === "status") {
                 root.statusText = value;
                 root.updateStatusSegments();

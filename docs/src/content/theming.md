@@ -57,6 +57,7 @@ Recovery refuses to overwrite an externally changed theme file.
 | `rosepine` | Muted rose/pine tones |
 | `everforest` | Muted green forest palette |
 | `monochrome` | Black and white minimal |
+| `moderno-morbido` | Night blue with a periwinkle accent and the soft style: rounded corners, bar islands, and wider gaps |
 
 ### Light
 
@@ -94,7 +95,52 @@ Each `[theme.name]` section sets colors for all components:
 
 Quickshell derives its opaque surfaces, text, borders, accent, success,
 warning, and danger colors from the active theme's existing dwm and terminal
-color keys.
+color keys. A theme can set optional shell colors to separate them from the
+terminal palette: `shell_popup`, `shell_bar`, `shell_window`, `shell_input`,
+`shell_chip`, `shell_hover`, `shell_on_accent`, `shell_text_secondary`,
+`shell_text_muted`, and `shell_text_faint` (all `#RRGGBB`).
+
+---
+
+## Style Profiles
+
+Themes without a `style` key keep the classic KinetixOS geometry. A theme can
+select a style profile, defined once in the same file:
+
+```toml
+[theme.moderno-morbido]
+style = "soft"
+
+[style.soft]
+corner_radius  = 14    # Picom window corners
+bar_islands    = true  # three rounded islands instead of one strip
+gap            = 12    # dwm gap between windows and at screen edges
+borderpx       = 2
+font_family    = "Outfit"
+```
+
+The shipped `[style.soft]` section lists every supported key with its unit.
+dwm reads `gap` and `borderpx`; Quickshell reads the radii, bar size and
+margins, accent transparency, and font; Picom gets the corner radius and
+shadows. An invalid or missing profile falls back to the classic geometry and
+is reported in **Settings → Appearance**.
+
+The style font replaces only the default shell font, never a font you chose.
+The installer downloads Outfit into `~/.local/share/fonts/Outfit`; without
+it the shell uses Inter, then the system sans-serif font.
+
+Picom settings stay global. A style profile owns only a marked block in
+`~/.config/picom.conf` (corner radius and shadows) that is written while the
+theme is active and removed when you switch to a theme without a style. If
+your Picom configuration already sets one of those options, your value wins
+and the block is not written. Without a running compositor the bar stays one
+opaque strip and popups keep square corners.
+
+Updating KinetixOS adds newly shipped themes and style profiles to an existing
+`~/.config/kinetixos/themes.toml` (`dwm-settings-theme merge-shipped`). It
+appends only missing sections, keeps a backup in
+`~/.local/state/kinetixos/appearance/`, and never changes your active theme
+or your own sections.
 
 ---
 

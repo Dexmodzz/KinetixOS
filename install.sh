@@ -58,6 +58,12 @@ BG_DIR="$HOME/Pictures/backgrounds"
 MESLO_VERSION="3.4.0"
 MESLO_URL="https://github.com/ryanoasis/nerd-fonts/releases/download/v${MESLO_VERSION}/Meslo.zip"
 MESLO_SHA256="13b502ac8c2bd9d3161018064560e23cd42b175bb730780a270975265a19ad57"
+# Outfit (SIL OFL 1.1) is the UI font of the soft style profile. Pinned to a
+# google/fonts commit; the shell falls back to Inter or sans-serif without it.
+OUTFIT_COMMIT="8b0a1d0f5983c89bc2b93f1b5fb55f9e252744b5"
+OUTFIT_BASE_URL="https://raw.githubusercontent.com/google/fonts/${OUTFIT_COMMIT}/ofl/outfit"
+OUTFIT_FONT_SHA256="fc7287273e66929776e2ba54f144fe699080bec29f61bf649d70d871468aeade"
+OUTFIT_LICENSE_SHA256="c676351bf8576b9aba743cd5eaa8c0e7ee0d51f805d720447b4df4ddb6a2e416"
 NORDIC_THEME_URL="https://github.com/EliverLara/Nordic.git"
 NORDIC_THEME_REF="master"
 ARCH="$(uname -m)"
@@ -562,6 +568,42 @@ install_meslo_nerd_font() {
 	ok "MesloLGS Nerd Font installed."
 }
 
+install_outfit_font() {
+	local font_dir="$HOME/.local/share/fonts/Outfit"
+	local tmp_dir
+
+	if fc-list 2>/dev/null | command grep -qi ': Outfit[:,]'; then
+		ok "Outfit font is already installed."
+		return 0
+	fi
+
+	tmp_dir="$(mktemp -d)"
+	info "Downloading the Outfit font..."
+	if ! curl --fail --location --show-error --silent \
+		"$OUTFIT_BASE_URL/Outfit%5Bwght%5D.ttf" --output "$tmp_dir/Outfit.ttf" ||
+		! curl --fail --location --show-error --silent \
+			"$OUTFIT_BASE_URL/OFL.txt" --output "$tmp_dir/OFL.txt"; then
+		rm -rf "$tmp_dir"
+		warn "Failed to download the Outfit font; the soft style uses a fallback font."
+		return 0
+	fi
+
+	if ! printf '%s  %s\n%s  %s\n' \
+		"$OUTFIT_FONT_SHA256" "$tmp_dir/Outfit.ttf" \
+		"$OUTFIT_LICENSE_SHA256" "$tmp_dir/OFL.txt" | sha256sum --check --status; then
+		rm -rf "$tmp_dir"
+		warn "Outfit font checksum verification failed; the soft style uses a fallback font."
+		return 0
+	fi
+
+	mkdir -p "$font_dir"
+	install -m 0644 "$tmp_dir/Outfit.ttf" "$font_dir/Outfit[wght].ttf"
+	install -m 0644 "$tmp_dir/OFL.txt" "$font_dir/OFL.txt"
+	rm -rf "$tmp_dir"
+	fc-cache -f "$font_dir" >/dev/null 2>&1
+	ok "Outfit font installed."
+}
+
 install_nordic_gtk_theme() {
 	local target="/usr/share/themes/Nordic"
 	local tmp_dir
@@ -894,6 +936,7 @@ if install_recommended_profile; then
 	FONT_DIR="$HOME/.local/share/fonts"
 	mkdir -p "$FONT_DIR"
 	install_meslo_nerd_font
+	install_outfit_font
 	ok "Fonts installed."
 fi
 

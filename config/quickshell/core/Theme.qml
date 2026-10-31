@@ -29,12 +29,54 @@ Singleton {
     property string warning: "#EBCB8B"
     property string danger: "#BF616A"
     property string dangerSurface: "#3B4252"
+    // Optional roles. Classic themes derive them from the palette above.
+    property string surfaceWindow: "#434C5E"
+    property string surfaceInput: "#434C5E"
+    property string chip: "#434C5E"
+    property string textSecondary: "#D8DEE9"
+    property string textFaint: "#4C566A"
     readonly property string shadow: transparent
+
+    // Style profile. Defaults are the classic KinetixOS geometry; a theme's
+    // style profile from the appearance provider replaces them via applyStyle().
+    property string styleName: "classic"
+    // Set by the shell from the dwm state stream. Rounded popup corners and
+    // transparent bar gaps need a compositor; without one they render black.
+    property bool compositorActive: false
+    property bool styleBarIslands: false
+    property bool styleLauncherFooter: false
+    property int styleBarRadius: 0
+    property int stylePopupRadius: 0
+    property int styleCardRadius: 8
+    property int styleControlRadius: 6
+    property int styleLogoRadius: 6
+    property int stylePillRadius: 6
+    property int styleBarHeight: 30
+    property int styleBarMarginTop: 0
+    property int styleBarMarginSide: 0
+    property int stylePopupPadding: 18
+    property int styleTitleSize: 24
+    property int styleAccentSoftAlpha: 0
+    property int styleBorderSubtleAlpha: 0
+    property string styleFontFamily: ""
+    property int styleFontWeight: 400
+    property int styleFontWeightStrong: 700
+    readonly property bool softStyle: styleName !== "classic"
+
+    // "#RRGGBB" plus a 0-100 percentage -> "#AARRGGBB".
+    function withAlpha(color, percent) {
+        const value = String(color);
+        if (!/^#[0-9A-Fa-f]{6}$/.test(value)) return value;
+        const alpha = Math.round(Math.max(0, Math.min(100, percent)) * 2.55);
+        return "#" + (alpha < 16 ? "0" : "") + alpha.toString(16) + value.substring(1);
+    }
+    readonly property string accentSoft: softStyle ? withAlpha(accent, styleAccentSoftAlpha) : surfaceActive
+    readonly property string borderSubtle: softStyle ? withAlpha(accent, styleBorderSubtleAlpha) : border
 
     // Semantic shell roles. Keep these derived from the existing dwm palette
     // so hot-reloaded themes remain the single source of color state.
     readonly property string popupBackground: bg
-    readonly property string popupBorder: highContrast ? textStrong : borderStrong
+    readonly property string popupBorder: highContrast ? textStrong : softStyle ? borderSubtle : borderStrong
     readonly property string popupText: text
     readonly property string menuBackground: bg
     readonly property string menuText: text
@@ -82,9 +124,53 @@ Singleton {
         root.warning = colors.warning;
         root.danger = colors.danger;
         root.dangerSurface = colors["danger-surface"];
+        root.surfaceWindow = root.optionalColor(colors, "surface-window", colors.surface);
+        root.surfaceInput = root.optionalColor(colors, "surface-input", colors.surface);
+        root.chip = root.optionalColor(colors, "chip", colors["surface-active"]);
+        root.textSecondary = root.optionalColor(colors, "text-secondary", colors.text);
+        root.textFaint = root.optionalColor(colors, "text-faint", colors.placeholder);
     }
 
-    property string fontFamily: "MesloLGS Nerd Font Mono"
+    function optionalColor(colors, name, fallback) {
+        const value = colors[name];
+        return typeof value === "string" && /^#[0-9A-Fa-f]{6}$/.test(value) ? value : fallback;
+    }
+
+    function styleInt(values, name, fallback) {
+        const value = Number(values[name]);
+        return values[name] !== undefined && isFinite(value) ? Math.round(value) : fallback;
+    }
+
+    // Apply a provider style profile; an empty map restores the classic look.
+    function applyStyle(name, values) {
+        const v = values || {};
+        root.styleName = name && name.length > 0 ? name : "classic";
+        root.styleBarIslands = v.bar_islands === "true";
+        root.styleLauncherFooter = v.launcher_footer === "true";
+        root.styleBarRadius = root.styleInt(v, "bar_radius", 0);
+        root.stylePopupRadius = root.styleInt(v, "popup_radius", 0);
+        root.styleCardRadius = root.styleInt(v, "card_radius", 8);
+        root.styleControlRadius = root.styleInt(v, "control_radius", 6);
+        root.styleLogoRadius = root.styleInt(v, "logo_radius", root.styleControlRadius);
+        root.stylePillRadius = root.styleInt(v, "pill_radius", 6);
+        root.styleBarHeight = root.styleInt(v, "bar_height", 30);
+        root.styleBarMarginTop = root.styleInt(v, "bar_margin_top", 0);
+        root.styleBarMarginSide = root.styleInt(v, "bar_margin_side", 0);
+        root.stylePopupPadding = root.styleInt(v, "popup_padding", 18);
+        root.styleTitleSize = root.styleInt(v, "title_size", 24);
+        root.styleAccentSoftAlpha = root.styleInt(v, "accent_soft_alpha", 0);
+        root.styleBorderSubtleAlpha = root.styleInt(v, "border_subtle_alpha", 0);
+        root.styleFontFamily = typeof v.font_family === "string" ? v.font_family : "";
+        root.styleFontWeight = root.styleInt(v, "font_weight", 400);
+        root.styleFontWeightStrong = root.styleInt(v, "font_weight_strong", 700);
+    }
+
+    readonly property string defaultFontFamily: "MesloLGS Nerd Font Mono"
+    property string requestedFontFamily: defaultFontFamily
+    // A style font replaces only the default family, never a font the user
+    // picked. AppearanceModel resolves it to an installed family first.
+    readonly property string fontFamily: styleFontFamily.length > 0
+        && requestedFontFamily === defaultFontFamily ? styleFontFamily : requestedFontFamily
     property real requestedFontScale: 1.0
     property bool desktopTypography: false
     // Qt already scales X11 windows using Xft/DPI. Apply only the remainder
@@ -96,7 +182,7 @@ Singleton {
     readonly property string iconFontFamily: "MesloLGS Nerd Font Mono"
 
     function applyFontPreferences(family, scale) {
-        root.fontFamily = family.length > 0 ? family : "MesloLGS Nerd Font Mono";
+        root.requestedFontFamily = family.length > 0 ? family : root.defaultFontFamily;
         root.requestedFontScale = Math.max(0.75, Math.min(2.0, scale));
     }
 
@@ -132,7 +218,7 @@ Singleton {
     readonly property int fontBodySize: scaledFontSize(13, 10)
     readonly property int fontSubtitleSize: scaledFontSize(14, 11)
     readonly property int fontTitleSize: scaledFontSize(18, 14)
-    readonly property int largeSurfaceTitleSize: scaledFontSize(24, 18)
+    readonly property int largeSurfaceTitleSize: scaledFontSize(styleTitleSize, Math.min(18, styleTitleSize))
     readonly property int panelIconFontSize: scaledFontSize(14, 8)
 
     readonly property int controlHeight: scaledSize(30)
@@ -140,10 +226,10 @@ Singleton {
     readonly property int controlPaddingX: scaledSize(9)
     readonly property int controlBorderWidth: highContrast ? 2 : 1
     readonly property int controlFocusBorderWidth: controlBorderWidth
-    readonly property int controlRadius: scaledSize(6)
+    readonly property int controlRadius: scaledSize(styleControlRadius)
     readonly property int menuHeaderHeight: scaledSize(26)
-    readonly property int popupPadding: spacingHuge
-    readonly property int popupRadius: 0
+    readonly property int popupPadding: scaledSize(stylePopupPadding)
+    readonly property int popupRadius: compositorActive ? scaledSize(stylePopupRadius) : 0
     readonly property int panelHeroIconSize: scaledSize(32)
     readonly property real panelMetaLetterSpacing: 1.2 * fontScale
     readonly property int panelSliderHeight: scaledSize(32)
@@ -154,9 +240,11 @@ Singleton {
     readonly property int panelToggleKnobSize: scaledSize(14)
     readonly property int panelToggleInset: scaledSize(3)
 
-    readonly property int panelHeight: scaledSize(30)
-    readonly property int panelMargin: 0
-    readonly property int panelEdgeMargin: 0
+    readonly property int panelHeight: scaledSize(styleBarHeight)
+    readonly property int panelMargin: scaledSize(styleBarMarginTop)
+    readonly property int panelEdgeMargin: scaledSize(styleBarMarginSide)
+    // Height of the panel window and of the space dwm reserves for it.
+    readonly property int panelWindowHeight: panelHeight + panelMargin
     readonly property int panelGap: spacingSm
     readonly property int popupMargin: popupPadding
     readonly property int popupSpacing: spacingXxl
@@ -169,8 +257,11 @@ Singleton {
     readonly property int sectionSpacing: spacingXxxl
     readonly property int radius: controlRadius
     readonly property int smallRadius: controlRadius
-    readonly property int barRadius: 0
-    readonly property int pillRadius: scaledSize(6)
+    readonly property int barRadius: scaledSize(styleBarRadius)
+    readonly property int pillRadius: scaledSize(stylePillRadius)
+    readonly property int logoRadius: scaledSize(styleLogoRadius)
+    readonly property int islandPadding: styleBarIslands ? spacingLg : 0
+    readonly property bool barIslandsTransparent: styleBarIslands && compositorActive
     readonly property int pillHeight: scaledSize(26)
     readonly property int pillHorizontalPadding: scaledSize(9)
     readonly property int compactWidgetSize: scaledSize(22)
@@ -189,7 +280,10 @@ Singleton {
     readonly property int largeSurfaceMargin: scaledSize(22)
     readonly property int largeSurfaceNavWidth: scaledSize(248)
     readonly property int largeSurfaceSearchHeight: scaledSize(44)
-    readonly property int largeSurfaceCardRadius: scaledSize(8)
+    readonly property int largeSurfaceCardRadius: scaledSize(styleCardRadius)
+    // Soft style search fields use a slightly heavier accent outline.
+    readonly property real inputFocusBorderWidth: softStyle && !highContrast
+        ? 1.5 * fontScale : controlFocusBorderWidth
     readonly property int titleFontSize: fontTitleSize
     readonly property int bodyFontSize: fontSubtitleSize
     readonly property int panelFontSize: fontBodySize

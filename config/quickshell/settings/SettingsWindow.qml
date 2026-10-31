@@ -53,6 +53,7 @@ FloatingWindow {
     }
 
     ShellSurface {
+        managedWindow: true
         anchors.fill: parent
         radius: 0
         margin: Theme.largeSurfaceMargin

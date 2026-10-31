@@ -18,7 +18,7 @@ ClickAwayPopup {
     readonly property int cardWidth: Theme.controlCenterWidth
     readonly property int compactRowHeight: Math.max(28, Theme.fontBodySize + 12)
     readonly property int maximumHeight: panelWindow && panelWindow.screen
-        ? Math.max(240, panelWindow.screen.height - Theme.panelHeight - Theme.popupMargin)
+        ? Math.max(240, panelWindow.screen.height - Theme.panelWindowHeight - Theme.popupMargin)
         : 240
     readonly property var powerPresets: root.powerModel.timeoutPresets
 
@@ -105,7 +105,7 @@ ClickAwayPopup {
     visible: panelWindow !== null && panelWindow.screen !== null && controlCenterModel.visible
     targetWindow: panelWindow
     popupX: Theme.controlCenterX
-    popupY: Theme.panelHeight
+    popupY: Theme.panelWindowHeight
     popupWidth: cardWidth
     popupHeight: Math.min(controlCard.implicitHeight, maximumHeight)
     onDismissed: controlCenterModel.close()

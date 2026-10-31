@@ -12,7 +12,7 @@
 #
 # Available themes:
 #   DARK:  nord · dracula · gruvbox · catppuccin · tokyonight · onedark
-#          solarized · rosepine · everforest · monochrome
+#          solarized · rosepine · everforest · monochrome · moderno-morbido
 #   LIGHT: catppuccin-latte · gruvbox-light · solarized-light · rosepine-dawn · tokyonight-day
 #
 # BORDER SIZE
@@ -50,6 +50,15 @@ borderpx = 1   # border size in pixels (0 = none, 1-3 = recommended)
 #
 #   Dark mode: dark_mode = true                   (true = dark, false = light; default: true)
 #   GTK theme: gtk_theme = "Nordic"               (optional; auto-resolves to matching installed theme, adw-gtk3-dark, or Adwaita)
+#
+#   Style profile (optional): style = "soft" selects a [style.soft] section at
+#   the end of this file (corner radius, gaps, bar islands, shadows, font).
+#   Themes without style keep the classic KinetixOS geometry.
+#
+#   Shell colors (optional, used by the Quickshell panel and popups):
+#     shell_popup · shell_bar · shell_window · shell_input · shell_chip
+#     shell_hover · shell_on_accent · shell_text_secondary · shell_text_muted
+#     shell_text_faint
 
 
 # ── Nord ──────────────────────────────────────────────────────────────────────
@@ -383,6 +392,55 @@ dark_mode       = true
 
 
 
+# ── Moderno morbido ──────────────────────────────────────────────────────────
+# Night blue with a periwinkle accent and the soft style profile.
+# Border and hover colors are the accent pre-blended over the surface,
+# because X11 window borders have no alpha channel.
+[theme.moderno-morbido]
+normfgcolor     = "#E3E6FA"
+normbgcolor     = "#1E2036"
+normbordercolor = "#3C4162"
+selfgcolor      = "#E3E6FA"
+selbgcolor      = "#33375C"
+selbordercolor  = "#A6B4FF"
+
+term_bg         = "#121429"
+term_fg         = "#E3E6FA"
+term_cursor     = "#A6B4FF"
+term_color0     = "#2A2D4E"
+term_color1     = "#F29AB0"
+term_color2     = "#9BE3B0"
+term_color3     = "#F2D49B"
+term_color4     = "#A6B4FF"
+term_color5     = "#CDB0FF"
+term_color6     = "#93D8EA"
+term_color7     = "#C4C9EE"
+term_color8     = "#4A4F80"
+term_color9     = "#F7B3C4"
+term_color10    = "#B5ECC5"
+term_color11    = "#F7E2B8"
+term_color12    = "#C3CDFF"
+term_color13    = "#DDC8FF"
+term_color14    = "#B3E5F2"
+term_color15    = "#E3E6FA"
+
+shell_popup          = "#202342"
+shell_bar            = "#121429"
+shell_window         = "#1E2036"
+shell_input          = "#13152A"
+shell_chip           = "#3A3E6E"
+shell_hover          = "#2A2E52"
+shell_on_accent      = "#15172E"
+shell_text_secondary = "#C4C9EE"
+shell_text_muted     = "#A3A8D4"
+shell_text_faint     = "#8F95C8"
+
+dark_mode       = true
+gtk_theme       = "adw-gtk3-dark"
+style           = "soft"
+
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # LIGHT THEMES
 # ══════════════════════════════════════════════════════════════════════════════
@@ -549,3 +607,39 @@ term_color14    = "#007197"
 term_color15    = "#3760BF"
 
 dark_mode       = false
+
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# STYLE PROFILES  —  selected by a theme's style key
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# Sizes are pixels, alpha and opacity values are percentages (0-100), and
+# font weights use the CSS scale (100-900). The shell, dwm, and Picom all read
+# these values; nothing else stores them.
+
+[style.soft]
+corner_radius          = 14   # Picom window corners
+bar_radius             = 14
+popup_radius           = 18   # shell popups and the launcher
+card_radius            = 12   # inputs and list rows
+control_radius         = 8    # small buttons and icon tiles
+logo_radius            = 7
+pill_radius            = 999  # clamped to half the height (full pill)
+gap                    = 12   # dwm gap between windows and at screen edges
+borderpx               = 2
+bar_height             = 32
+bar_margin_top         = 10
+bar_margin_side        = 12
+bar_islands            = true
+popup_padding          = 16
+title_size             = 20
+accent_soft_alpha      = 14
+border_subtle_alpha    = 22
+shadow_radius          = 30   # Picom window shadows (blur, opacity %, drop)
+shadow_opacity         = 45
+shadow_offset_y        = 10
+font_family            = "Outfit"
+font_weight            = 500
+font_weight_strong     = 650
+launcher_footer        = true

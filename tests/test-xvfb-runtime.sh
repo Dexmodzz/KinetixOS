@@ -627,6 +627,60 @@ floating_win=$(cat "$work/floating-window-id")
 [ -n "$floating_win" ]
 wait_for_active_window "$floating_win"
 
+# A style profile sets runtime gaps and borders: 12px between windows and at
+# the screen edges, 2px borders. Restoring the classic theme restores both.
+outer_geometry() {
+	{
+		DISPLAY=$display xdotool getwindowgeometry --shell "$1"
+		DISPLAY=$display "$work/xclient" border "$1"
+	} | awk -F= '
+		{ value[$1] = $2 }
+		END {
+			# X and Y are the outer corner; WIDTH excludes the border.
+			b = value["border_width"]
+			print value["X"], value["Y"], value["WIDTH"] + 2 * b, b
+		}
+	'
+}
+wait_for_border_width() {
+	expected=$1
+	attempt=0
+	while [ "$attempt" -lt 100 ]; do
+		# shellcheck disable=SC2046 # four numeric fields
+		set -- $(outer_geometry "$win")
+		[ "$4" = "$expected" ] && return 0
+		attempt=$((attempt + 1))
+		sleep 0.05
+	done
+	printf '%s\n' "border width did not become $expected" >&2
+	exit 1
+}
+cp "$home/.config/kinetixos/themes.toml" "$work/themes-classic.toml"
+sed -i '0,/^theme = "nord"/s//theme = "moderno-morbido"/' "$home/.config/kinetixos/themes.toml"
+kill -USR1 "$dwm_pid"
+wait_for_border_width 2
+# shellcheck disable=SC2046 # four numeric fields
+set -- $(outer_geometry "$win")
+first_x=$1 first_y=$2 first_w=$3
+# shellcheck disable=SC2046 # four numeric fields
+set -- $(outer_geometry "$floating_win")
+second_x=$1 second_w=$3
+if [ "$first_x" != 12 ] || [ "$first_y" != 12 ] ||
+	[ $((second_x - first_x - first_w)) != 12 ] ||
+	[ $((1024 - second_x - second_w)) != 12 ]; then
+	printf '%s\n' "soft style gaps are not 12px: $first_x $first_y $first_w $second_x $second_w" >&2
+	exit 1
+fi
+cp "$work/themes-classic.toml" "$home/.config/kinetixos/themes.toml"
+kill -USR1 "$dwm_pid"
+wait_for_border_width 1
+# shellcheck disable=SC2046 # four numeric fields
+set -- $(outer_geometry "$win")
+if [ "$1" != 5 ] || [ "$2" != 5 ]; then
+	printf '%s\n' "classic gaps were not restored: $1 $2" >&2
+	exit 1
+fi
+
 # Explicit floating toggles shrink around the tile center and retile without drift.
 tiled_geometry=$(DISPLAY=$display xdotool getwindowgeometry --shell "$floating_win")
 for toggle_cycle in 1 2; do

@@ -20,12 +20,12 @@ PopupWindow {
     implicitWidth: popupWidth
     implicitHeight: Math.min(notificationsColumn.implicitHeight,
         panelWindow && panelWindow.screen
-            ? Math.max(1, panelWindow.screen.height - Theme.panelHeight - edgeMargin) : 1)
+            ? Math.max(1, panelWindow.screen.height - Theme.panelWindowHeight - edgeMargin) : 1)
     anchor.window: panelWindow
     anchor.rect.x: panelWindow
         ? Math.max(edgeMargin, panelWindow.width - popupWidth - edgeMargin)
         : edgeMargin
-    anchor.rect.y: Theme.panelHeight
+    anchor.rect.y: Theme.panelWindowHeight
     color: Theme.transparent
 
     Flickable {

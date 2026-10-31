@@ -30,6 +30,7 @@ FloatingWindow {
     }
 
     ShellSurface {
+        managedWindow: true
         anchors.fill: parent
         focus: true
 
