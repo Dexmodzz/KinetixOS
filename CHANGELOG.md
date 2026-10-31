@@ -6,6 +6,20 @@ versions from `config.mk`.
 
 ## [Unreleased]
 
+### Added
+
+- "Moderno morbido" theme: night blue with a periwinkle accent, three rounded
+  bar islands, a restyled Application Index launcher, 12 px window gaps,
+  2 px borders, and Picom rounded corners and shadows.
+- Optional theme style profiles (`style = "NAME"` with a `[style.NAME]`
+  section in `themes.toml`) for shell radii, bar layout, fonts, dwm gaps and
+  borders, and Picom corners and shadows. Themes without one are unchanged.
+- Optional `shell_*` theme colors that separate shell surfaces and text roles
+  from the terminal palette.
+- `dwm-settings-theme merge-shipped`, run on install and update, adds newly
+  shipped themes and style profiles to an existing user `themes.toml`.
+- The installer downloads the Outfit font (SIL OFL 1.1) for the soft style.
+
 ## [0.1.0] - 2026-10-20
 
 ### Added
