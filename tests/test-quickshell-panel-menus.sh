@@ -15,8 +15,11 @@ done
 grep -Fq 'onEnabledChanged: if (enabled && !dragging) liveValue = value' "$core/PanelSlider.qml"
 grep -Fq 'if (wheel.angleDelta.y === 0)' "$core/PanelSlider.qml"
 
-grep -Fq 'readonly property int panelHeight: scaledSize(30)' "$core/Theme.qml"
-grep -Fq 'exclusiveZone: Theme.panelHeight' "$panel/DwmPanel.qml"
+grep -Fq 'property int styleBarHeight: 30' "$core/Theme.qml"
+grep -Fq 'readonly property int panelHeight: scaledSize(styleBarHeight)' "$core/Theme.qml"
+grep -Fq 'readonly property int panelWindowHeight: panelHeight + panelMargin' "$core/Theme.qml"
+grep -Fq 'implicitHeight: Theme.panelWindowHeight' "$panel/DwmPanel.qml"
+grep -Fq 'exclusiveZone: Theme.panelWindowHeight' "$panel/DwmPanel.qml"
 grep -Fq 'aboveWindows: root.state.fullscreenMonitorIndexes.indexOf(' "$panel/DwmPanel.qml"
 grep -Fq 'signal popupRequested(var panelWindow, string popupId)' "$panel/DwmPanel.qml"
 grep -Fq 'model: root.state.workspaceIndexes(root.screen)' "$panel/DwmPanel.qml"

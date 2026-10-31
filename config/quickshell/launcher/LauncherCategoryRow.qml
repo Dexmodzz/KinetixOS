@@ -30,22 +30,26 @@ Flickable {
 
                 Layout.preferredHeight: Theme.chipHeight
                 Layout.preferredWidth: launcherCategoryLabel.width + 22
-                radius: Theme.controlRadius
-                color: root.launcherModel.category === categoryDelegate.modelData.id
-                    ? Theme.controlSelectedFill
+                readonly property bool active: root.launcherModel.category === categoryDelegate.modelData.id
+
+                radius: Theme.softStyle ? Theme.pillRadius : Theme.controlRadius
+                color: Theme.softStyle
+                    ? (active ? Theme.accent : launcherCategoryMouse.containsMouse ? Theme.borderSubtle : Theme.accentSoft)
+                    : active ? Theme.controlSelectedFill
                     : launcherCategoryMouse.containsMouse ? Theme.controlHoverFill : Theme.controlNormalFill
-                border.color: root.launcherModel.category === categoryDelegate.modelData.id
-                    ? Theme.controlSelectedBorder
+                border.color: Theme.softStyle ? Theme.transparent
+                    : active ? Theme.controlSelectedBorder
                     : launcherCategoryMouse.containsMouse ? Theme.controlHoverBorder : Theme.controlNormalBorder
-                border.width: Theme.controlBorderWidth
+                border.width: Theme.softStyle ? 0 : Theme.controlBorderWidth
 
                 Text {
                     id: launcherCategoryLabel
 
                     anchors.centerIn: parent
                     text: categoryDelegate.modelData.label + " " + categoryDelegate.modelData.count
-                    color: root.launcherModel.category === categoryDelegate.modelData.id
-                        ? Theme.controlSelectedText : Theme.controlNormalText
+                    color: Theme.softStyle
+                        ? (categoryDelegate.active ? Theme.accentText : Theme.text)
+                        : categoryDelegate.active ? Theme.controlSelectedText : Theme.controlNormalText
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.smallFontSize
                     font.bold: root.launcherModel.category === categoryDelegate.modelData.id

@@ -37,6 +37,7 @@ FloatingWindow {
     }
 
     ShellSurface {
+        managedWindow: true
         anchors.fill: parent
 
         ColumnLayout {

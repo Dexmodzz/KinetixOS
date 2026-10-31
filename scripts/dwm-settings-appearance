@@ -41,10 +41,15 @@ readonly key_separator=$'\034'
 readonly legacy_theme_id=$'\035legacy-colors'
 readonly legacy_theme_label='@legacy-colors'
 readonly builtin_palette_id=$'\036builtin-palette'
+readonly style_prefix=$'\037style.'
+readonly max_style_count=16
+readonly max_font_family_length=64
 readonly quoted_record_re='^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*=[[:space:]]*"(([^"\\]|\\.)*)"[[:space:]]*(#.*)?$'
 readonly quoted_active_theme_re='^[[:space:]]*theme[[:space:]]*=[[:space:]]*"(([^"\\]|\\.)*)"[[:space:]]*(#.*)?$'
 
 declare -a theme_order=()
+declare -a style_order=()
+declare -A style_invalid=()
 declare -a errors=()
 declare -A section_count=()
 declare -A value=()
@@ -215,9 +220,54 @@ runtime_bare_is_numeric() {
 
 theme_key_supported() {
 	case $1 in
-	normfgcolor | normbgcolor | normbordercolor | selfgcolor | selbgcolor | selbordercolor | term_bg | term_fg | term_cursor | term_color[0-9] | term_color1[0-5] | dark_mode | gtk_theme) return 0 ;;
+	normfgcolor | normbgcolor | normbordercolor | selfgcolor | selbgcolor | selbordercolor | term_bg | term_fg | term_cursor | term_color[0-9] | term_color1[0-5] | dark_mode | gtk_theme | style) return 0 ;;
+	shell_popup | shell_bar | shell_window | shell_input | shell_chip | shell_hover | shell_on_accent | shell_text_secondary | shell_text_muted | shell_text_faint) return 0 ;;
 	*) return 1 ;;
 	esac
+}
+
+readonly -a optional_shell_colors=(
+	shell_popup shell_bar shell_window shell_input shell_chip shell_hover
+	shell_on_accent shell_text_secondary shell_text_muted shell_text_faint
+)
+
+# Style profile schema: key|kind|minimum|maximum. Sizes are pixels, alpha and
+# opacity values are percentages, and weights use the CSS 100-900 scale.
+readonly -a style_schema=(
+	'corner_radius|int|0|64'
+	'bar_radius|int|0|64'
+	'popup_radius|int|0|64'
+	'card_radius|int|0|64'
+	'control_radius|int|0|64'
+	'logo_radius|int|0|64'
+	'pill_radius|int|0|999'
+	'gap|int|0|64'
+	'borderpx|int|0|8'
+	'bar_height|int|20|64'
+	'bar_margin_top|int|0|48'
+	'bar_margin_side|int|0|96'
+	'bar_islands|bool|0|0'
+	'popup_padding|int|0|48'
+	'title_size|int|10|48'
+	'accent_soft_alpha|int|0|100'
+	'border_subtle_alpha|int|0|100'
+	'shadow_radius|int|0|128'
+	'shadow_opacity|int|0|100'
+	'shadow_offset_y|int|0|64'
+	'font_family|font|0|0'
+	'font_weight|int|100|900'
+	'font_weight_strong|int|100|900'
+	'launcher_footer|bool|0|0'
+)
+
+style_schema_entry() {
+	local entry
+	for entry in "${style_schema[@]}"; do
+		if [[ ${entry%%|*} == "$1" ]]; then
+			return 0
+		fi
+	done
+	return 1
 }
 
 string_byte_length() {
@@ -331,6 +381,34 @@ parse_themes() {
 						add_error "theme:$theme" duplicate "Duplicate theme section at line $line_number"
 					fi
 				fi
+			elif [[ $header =~ ^\[style\.([^]]+)\]$ ]]; then
+				theme_candidate=${BASH_REMATCH[1]}
+				if [[ ! $theme_candidate =~ ^[A-Za-z0-9._-]+$ ]] ||
+					((${#theme_candidate} > max_theme_name_length)); then
+					section=ignore
+					theme=
+					provider_state=partial
+					add_error parser invalid-style-name "Style name is not a supported bare identifier at line $line_number"
+				else
+					theme=$style_prefix$theme_candidate
+					section=style
+					if [[ -z ${section_count[$theme]+x} ]] &&
+						((${#style_order[@]} >= max_style_count)); then
+						section=ignore
+						theme=
+						provider_state=partial
+						add_error parser style-limit "Style inventory exceeds $max_style_count records"
+						continue
+					fi
+					((section_count[$theme] = ${section_count[$theme]:-0} + 1))
+					if ((${section_count[$theme]} == 1)); then
+						style_order+=("$theme_candidate")
+					else
+						style_invalid[$theme_candidate]=1
+						provider_state=partial
+						add_error "style:$theme_candidate" duplicate "Duplicate style section at line $line_number"
+					fi
+				fi
 			elif [[ $header == '[colors]' ]]; then
 				theme=$legacy_theme_id
 				section=theme
@@ -354,7 +432,7 @@ parse_themes() {
 				section=ignore
 				theme=
 				case $header in
-				'[theme.'* | '[active'* | '[appearance'*)
+				'[theme.'* | '[style.'* | '[active'* | '[appearance'*)
 					provider_state=partial
 					add_error parser malformed-section "Malformed theme section header at line $line_number"
 					;;
@@ -431,15 +509,19 @@ parse_themes() {
 			continue
 		fi
 
-		[[ $section == theme || $section == active || $section == appearance ]] || continue
+		[[ $section == theme || $section == style || $section == active || $section == appearance ]] || continue
 		if [[ $section == theme ]] && ! theme_key_supported "$key"; then
+			continue
+		fi
+		if [[ $section == style ]] && ! style_schema_entry "$key"; then
 			continue
 		fi
 		raw=$theme$key_separator$key
 		if [[ -n ${key_seen[$raw]+x} ]]; then
 			provider_state=partial
 			[[ $section != theme ]] || theme_invalid[$theme]=1
-			add_error "${section}:${theme}" duplicate-key "Duplicate key '$key' at line $line_number"
+			[[ $section != style ]] || style_invalid[${theme#"$style_prefix"}]=1
+			add_error "${section}:${theme#"$style_prefix"}" duplicate-key "Duplicate key '$key' at line $line_number"
 			continue
 		fi
 		key_seen[$raw]=1
@@ -525,6 +607,53 @@ validate_themes() {
 			provider_state=partial
 			add_error "theme:$(theme_label "$theme")" invalid-dark-mode "Theme dark_mode must be true or false"
 		fi
+		for key in "${optional_shell_colors[@]}"; do
+			color=${value[$theme$key_separator$key]:-}
+			if [[ -n $color ]] && ! valid_color "$color"; then
+				theme_invalid[$theme]=1
+				provider_state=partial
+				add_error "theme:$(theme_label "$theme")" invalid-color "Theme key '$key' is not a #RRGGBB color"
+			fi
+		done
+		color=${value[$theme$key_separator'style']:-}
+		if [[ -n ${value[$theme$key_separator'style']+x} && ! $color =~ ^[A-Za-z0-9._-]{1,505}$ ]]; then
+			theme_invalid[$theme]=1
+			provider_state=partial
+			add_error "theme:$(theme_label "$theme")" invalid-style "Theme style must name a [style.NAME] section"
+		fi
+	done
+	validate_styles
+}
+
+validate_styles() {
+	local style entry key kind minimum maximum raw
+	for style in "${style_order[@]}"; do
+		for entry in "${style_schema[@]}"; do
+			IFS='|' read -r key kind minimum maximum <<<"$entry"
+			[[ -n ${value[$style_prefix$style$key_separator$key]+x} ]] || continue
+			raw=${value[$style_prefix$style$key_separator$key]}
+			case $kind in
+			int)
+				if [[ ! $raw =~ ^[0-9]{1,4}$ ]] || ((10#$raw < minimum || 10#$raw > maximum)); then
+					style_invalid[$style]=1
+					add_error "style:$style" invalid-value "Style key '$key' must be an integer from $minimum to $maximum"
+				fi
+				;;
+			bool)
+				if [[ $raw != true && $raw != false ]]; then
+					style_invalid[$style]=1
+					add_error "style:$style" invalid-value "Style key '$key' must be true or false"
+				fi
+				;;
+			font)
+				if [[ ! $raw =~ ^[A-Za-z0-9\ ._-]+$ ]] || ((${#raw} > max_font_family_length)); then
+					style_invalid[$style]=1
+					add_error "style:$style" invalid-value "Style key '$key' is not a supported font family name"
+				fi
+				;;
+			esac
+		done
+		[[ -z ${style_invalid[$style]+x} ]] || provider_state=partial
 	done
 }
 
@@ -1898,8 +2027,53 @@ emit_theme_records() {
 	done
 }
 
+# The resolved theme's style profile. Missing or invalid profiles fall back to
+# the classic geometry so a broken style never hides a valid palette.
+emit_style_records() {
+	local style='' state=default entry key raw
+	[[ -n $resolved_theme && $resolved_theme != "$legacy_theme_id" ]] &&
+		style=${value[$resolved_theme$key_separator'style']:-}
+	if [[ -z $style ]]; then
+		printf 'style\tclassic\tdefault\n'
+		return
+	fi
+	if [[ -z ${section_count[$style_prefix$style]+x} ]]; then
+		[[ $provider_state == unavailable ]] || provider_state=partial
+		add_error "style:$style" missing "Theme style '$style' has no [style.$style] section; using classic"
+		printf 'style\tclassic\tfallback\n'
+		return
+	fi
+	if [[ -n ${style_invalid[$style]+x} ]]; then
+		printf 'style\tclassic\tfallback\n'
+		return
+	fi
+	state=selected
+	printf 'style\t%s\t%s\n' "$(clean_field "$style")" "$state"
+	for entry in "${style_schema[@]}"; do
+		key=${entry%%|*}
+		[[ -n ${value[$style_prefix$style$key_separator$key]+x} ]] || continue
+		raw=${value[$style_prefix$style$key_separator$key]}
+		printf 'style-value\t%s\t%s\n' "$key" "$(clean_field "$raw")"
+	done
+}
+
 emit_color_records() {
-	local name key fallback second_fallback color mapping candidate
+	local name key fallback second_fallback override color mapping candidate
+	# Optional shell_* keys override a role first; without them the classic
+	# chains below produce exactly the colors every existing theme had.
+	local -A overrides=(
+		['background']=shell_popup
+		['bar-background']=shell_bar
+		['surface-hover']=shell_hover
+		['text-muted']=shell_text_muted
+		['placeholder']=shell_text_muted
+		['accent-text']=shell_on_accent
+		['surface-window']=shell_window
+		['surface-input']=shell_input
+		['chip']=shell_chip
+		['text-secondary']=shell_text_secondary
+		['text-faint']=shell_text_faint
+	)
 	local -a mappings=(
 		'background|term_bg|normbgcolor'
 		'bar-background|normbgcolor|term_bg'
@@ -1919,11 +2093,24 @@ emit_color_records() {
 		'warning|term_color3|selbgcolor'
 		'danger|term_color1|selbordercolor'
 		'danger-surface|term_color0|normbgcolor'
+		'surface-window|normbgcolor|term_bg'
+		'surface-input|normbgcolor|term_bg'
+		'chip|selbgcolor|term_color8'
+		'text-secondary|normfgcolor|'
+		'text-faint|term_color8|term_fg|normfgcolor'
 	)
 
 	[[ -n $palette_theme ]] || return 0
 	for mapping in "${mappings[@]}"; do
 		IFS='|' read -r name key fallback second_fallback <<<"$mapping"
+		override=${overrides[$name]:-}
+		if [[ -n $override ]]; then
+			color=${value[$palette_theme$key_separator$override]:-}
+			if valid_color "$color"; then
+				printf 'color\t%s\t%s\t%s\n' "$name" "$(clean_field "$color")" "$override"
+				continue
+			fi
+		fi
 		color=
 		for candidate in "$key" "$fallback" "$second_fallback"; do
 			[[ -n $candidate ]] || continue
@@ -2159,6 +2346,7 @@ snapshot() {
 		"$active_state"
 	emit_theme_records
 	emit_color_records
+	emit_style_records
 	emit_integrations
 	for error in "${errors[@]}"; do
 		printf 'error\t%s\n' "$error"

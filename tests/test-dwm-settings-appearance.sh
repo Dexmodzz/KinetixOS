@@ -209,7 +209,7 @@ grep -Fqx $'provider\tappearance\tavailable\tread-only\tShared theme inventory a
 grep -Fqx $'source\tuser\t'"$config_home/kinetixos/themes.toml" <<<"$output"
 grep -Fqx $'active\tnord\tnord\tselected' <<<"$output"
 grep -Fqx $'theme\tnord\tselected\tvalid\ttrue\tNordic\tTheme record is complete' <<<"$output"
-[[ $(grep -c $'^theme\t' <<<"$output") -eq 15 ]]
+[[ $(grep -c $'^theme\t' <<<"$output") -eq 16 ]]
 grep -Fqx $'color\tbackground\t#2E3440\tterm_bg' <<<"$output"
 grep -Fqx $'color\taccent\t#81A1C1\tselbordercolor' <<<"$output"
 grep -Fqx $'color\tdanger\t#BF616A\tterm_color1' <<<"$output"
@@ -715,6 +715,54 @@ if grep -Fq $'error\ttheme:nord\tinvalid-record\t' <<<"$metadata_key"; then
 	exit 1
 fi
 
+# Classic themes keep their palette and the classic style; the optional shell_*
+# keys and the style profile only change the theme that declares them.
+cp "$work/managed-themes.toml" "$config_home/kinetixos/themes.toml"
+classic_style=$(snapshot)
+grep -Fqx $'style\tclassic\tdefault' <<<"$classic_style"
+grep -Fqx $'color\tbackground\t#2E3440\tterm_bg' <<<"$classic_style"
+grep -Fqx $'color\ttext-muted\t#D8DEE9\tterm_fg' <<<"$classic_style"
+grep -Fqx $'color\tchip\t#434C5E\tselbgcolor' <<<"$classic_style"
+if grep -q $'^style-value\t' <<<"$classic_style"; then
+	printf 'A theme without a style profile reported style values\n' >&2
+	exit 1
+fi
+
+sed -i '0,/theme = "nord"/s//theme = "moderno-morbido"/' "$config_home/kinetixos/themes.toml"
+soft_style=$(snapshot)
+grep -Fqx $'active\tmoderno-morbido\tmoderno-morbido\tselected' <<<"$soft_style"
+grep -Fqx $'style\tsoft\tselected' <<<"$soft_style"
+grep -Fqx $'style-value\tbar_islands\ttrue' <<<"$soft_style"
+grep -Fqx $'style-value\tgap\t12' <<<"$soft_style"
+grep -Fqx $'style-value\tfont_family\tOutfit' <<<"$soft_style"
+grep -Fqx $'color\tbackground\t#202342\tshell_popup' <<<"$soft_style"
+grep -Fqx $'color\tbar-background\t#121429\tshell_bar' <<<"$soft_style"
+grep -Fqx $'color\ttext-muted\t#A3A8D4\tshell_text_muted' <<<"$soft_style"
+grep -Fqx $'color\taccent-text\t#15172E\tshell_on_accent' <<<"$soft_style"
+grep -Fqx $'provider\tappearance\tavailable\tread-only\tShared theme inventory and integration state' \
+	<<<"$soft_style"
+
+sed -i 's/^bar_height[[:space:]]*=.*/bar_height = 900/' "$config_home/kinetixos/themes.toml"
+invalid_style=$(snapshot)
+grep -Fqx $'active\tmoderno-morbido\tmoderno-morbido\tselected' <<<"$invalid_style"
+grep -Fqx $'style\tclassic\tfallback' <<<"$invalid_style"
+grep -Fq $'error\tstyle:soft\tinvalid-value\tStyle key \'bar_height\' must be an integer from 20 to 64' \
+	<<<"$invalid_style"
+
+sed -i 's/^\[style\.soft\]$/[style.other]/' "$config_home/kinetixos/themes.toml"
+missing_style=$(snapshot)
+grep -Fqx $'style\tclassic\tfallback' <<<"$missing_style"
+grep -Fq $'error\tstyle:soft\tmissing\t' <<<"$missing_style"
+
+cp "$work/managed-themes.toml" "$config_home/kinetixos/themes.toml"
+sed -i '0,/theme = "nord"/s//theme = "moderno-morbido"/' "$config_home/kinetixos/themes.toml"
+sed -i 's/^shell_popup[[:space:]]*=.*/shell_popup = "blue"/' "$config_home/kinetixos/themes.toml"
+invalid_shell=$(snapshot)
+grep -Fqx $'theme\tmoderno-morbido\tselected\tinvalid\ttrue\tadw-gtk3-dark\tTheme record is duplicate, malformed, or incomplete' \
+	<<<"$invalid_shell"
+grep -Fq $'error\ttheme:moderno-morbido\tinvalid-color\tTheme key \'shell_popup\' is not a #RRGGBB color' \
+	<<<"$invalid_shell"
+
 printf -v overlong_theme '%*s' 506 ''
 overlong_theme=${overlong_theme// /a}
 cp "$work/managed-themes.toml" "$config_home/kinetixos/themes.toml"
@@ -815,7 +863,7 @@ grep -Fqx $'active\tnord\tnord\trecovery' <<<"$split_duplicate"
 grep -Fqx $'color\tbar-background\t#434C5E\tnormbgcolor' <<<"$split_duplicate"
 grep -Fqx $'color\tplaceholder\t#D8DEE9\tterm_color8' <<<"$split_duplicate"
 grep -Fqx $'color\tsuccess\t#81A1C1\tterm_color2' <<<"$split_duplicate"
-[[ $(grep -Ec $'^color\t[^\t]+\t#[0-9A-Fa-f]{6}\t' <<<"$split_duplicate") -eq 18 ]]
+[[ $(grep -Ec $'^color\t[^\t]+\t#[0-9A-Fa-f]{6}\t' <<<"$split_duplicate") -eq 23 ]]
 
 cp "$work/managed-themes.toml" "$config_home/kinetixos/themes.toml"
 sed -i '0,/theme = "nord"/s//theme = "broken"/' "$config_home/kinetixos/themes.toml"

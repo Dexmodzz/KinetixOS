@@ -8,7 +8,7 @@ PopupWindow {
     default property alias popupContent: popupHost.data
     required property var targetWindow
     property int popupX: 0
-    property int popupY: Theme.panelHeight
+    property int popupY: Theme.panelWindowHeight
     property int popupWidth: 320
     property int popupHeight: 320
 

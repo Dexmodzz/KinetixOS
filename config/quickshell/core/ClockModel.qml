@@ -11,6 +11,9 @@ Scope {
     property bool initialized: false
     property string panelText: ""
     property string settingsText: ""
+    // Split date and time for panels that style them separately.
+    property string dateText: ""
+    property string timeText: ""
     property double timestamp: 0
 
     function refreshDisplay() {
@@ -21,6 +24,9 @@ Scope {
         const current = new Date(root.timestamp);
         root.panelText = Qt.formatDateTime(current, "ddd dd MMM - HH:mm");
         root.settingsText = Qt.formatDateTime(current, "dddd, dd MMMM yyyy - HH:mm t");
+        const date = Qt.formatDateTime(current, "ddd d MMM");
+        root.dateText = date.charAt(0).toUpperCase() + date.substring(1);
+        root.timeText = Qt.formatDateTime(current, "HH:mm");
     }
 
     function refreshTimezone() {

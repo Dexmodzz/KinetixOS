@@ -13,9 +13,11 @@ Rectangle {
 
     height: Theme.scaledSize(58)
     radius: Theme.largeSurfaceCardRadius
-    color: selected ? Theme.menuSelectedBackground : resultMouse.containsMouse ? Theme.menuHoverBackground : Theme.transparent
-    border.color: selected ? Theme.controlSelectedBorder : Theme.transparent
-    border.width: Theme.controlBorderWidth
+    color: Theme.softStyle
+        ? (selected ? Theme.accentSoft : resultMouse.containsMouse ? Theme.menuHoverBackground : Theme.transparent)
+        : selected ? Theme.menuSelectedBackground : resultMouse.containsMouse ? Theme.menuHoverBackground : Theme.transparent
+    border.color: selected && !Theme.softStyle ? Theme.controlSelectedBorder : Theme.transparent
+    border.width: Theme.softStyle ? 0 : Theme.controlBorderWidth
 
     MouseArea {
         id: resultMouse
@@ -36,16 +38,24 @@ Rectangle {
         Rectangle {
             Layout.preferredWidth: 3
             Layout.preferredHeight: 34
-            visible: root.selected
+            visible: root.selected && !Theme.softStyle
             color: Theme.accentSecondary
             radius: 2
         }
 
-        IconImage {
+        // Soft style frames the icon in a small tile; classic shows it bare.
+        Rectangle {
             Layout.preferredWidth: Theme.iconSize
-            Layout.preferredHeight: Theme.iconSize
+            Layout.preferredHeight: Layout.preferredWidth
             Layout.alignment: Qt.AlignVCenter
-            source: Icons.launcherIcon(root.modelData.icon)
+            radius: Theme.radius
+            color: Theme.softStyle ? (root.selected ? Theme.accentSoft : Theme.chip) : Theme.transparent
+
+            IconImage {
+                anchors.centerIn: parent
+                implicitSize: Theme.softStyle ? Theme.iconSize - Theme.spacingLg : Theme.iconSize
+                source: Icons.launcherIcon(root.modelData.icon)
+            }
         }
 
         Column {
@@ -55,10 +65,12 @@ Rectangle {
             Text {
                 width: parent.width
                 text: root.modelData.name
-                color: root.selected ? Theme.menuSelectedText : Theme.menuText
+                color: Theme.softStyle ? Theme.textStrong
+                    : root.selected ? Theme.menuSelectedText : Theme.menuText
                 font.family: Theme.fontFamily
                 font.pixelSize: Theme.bodyFontSize
-                font.bold: root.selected
+                font.weight: Theme.softStyle ? Theme.styleFontWeightStrong
+                    : root.selected ? Font.Bold : Font.Normal
                 elide: Text.ElideRight
             }
 
@@ -69,7 +81,7 @@ Rectangle {
                     const category = root.launcherModel.categoryLabel(root.modelData.primaryCategory);
 
                     if (detail.length > 0) {
-                        return detail + "  -  " + category;
+                        return detail + (Theme.softStyle ? " · " : "  -  ") + category;
                     }
 
                     return category;
@@ -80,6 +92,13 @@ Rectangle {
                 elide: Text.ElideRight
                 visible: text.length > 0
             }
+        }
+
+        UiText {
+            visible: Theme.softStyle && root.selected
+            text: "⏎"
+            color: Theme.accent
+            font.pixelSize: Theme.bodyFontSize
         }
     }
 }

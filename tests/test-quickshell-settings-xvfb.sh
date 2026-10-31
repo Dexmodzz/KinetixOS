@@ -1740,7 +1740,7 @@ appearance_preview=$(DISPLAY=$display HOME=$home XDG_CONFIG_HOME=$config_home XD
 appearance_recovery=$(DISPLAY=$display HOME=$home XDG_CONFIG_HOME=$config_home XDG_DATA_HOME=$data_home \
 	XDG_RUNTIME_DIR=$runtime quickshell ipc --path "$config" call settings appearanceRecoveryState)
 [ "$appearance_theme" = nord ]
-[ "$appearance_count" -eq 15 ]
+[ "$appearance_count" -eq 16 ]
 [ "$appearance_application" = partial ]
 [ "$appearance_preview" = none ]
 [ "$appearance_recovery" = none ]
@@ -2688,13 +2688,13 @@ while [ "$i" -lt 100 ]; do
 		XDG_RUNTIME_DIR=$runtime quickshell ipc --path "$config" call settings appearanceThemeCount 2>/dev/null || true)
 	[ "$appearance_status" = partial ] &&
 		[ "$appearance_application" = "$appearance_application_before" ] &&
-		[ "$appearance_count" -eq 16 ] && break
+		[ "$appearance_count" -eq 17 ] && break
 	i=$((i + 1))
 	sleep 0.05
 done
 if [ "$appearance_status" != partial ] ||
 	[ "$appearance_application" != "$appearance_application_before" ] ||
-	[ "$appearance_count" -ne 16 ]; then
+	[ "$appearance_count" -ne 17 ]; then
 	printf 'Inventory-only diagnostics reported provider=%s application=%s themes=%s\n' \
 		"$appearance_status" "$appearance_application" "$appearance_count" >&2
 	for integration_id in gtk qt cursor alacritty kitty compositor; do
@@ -2716,11 +2716,11 @@ i=0
 while [ "$i" -lt 100 ]; do
 	appearance_count=$(DISPLAY=$display HOME=$home XDG_CONFIG_HOME=$config_home XDG_DATA_HOME=$data_home \
 		XDG_RUNTIME_DIR=$runtime quickshell ipc --path "$config" call settings appearanceThemeCount 2>/dev/null || true)
-	[ "$appearance_count" -eq 15 ] && break
+	[ "$appearance_count" -eq 16 ] && break
 	i=$((i + 1))
 	sleep 0.05
 done
-if [ "$appearance_count" -ne 15 ]; then
+if [ "$appearance_count" -ne 16 ]; then
 	printf 'Appearance theme inventory did not recover: themes=%s\n' "$appearance_count" >&2
 	exit 1
 fi
@@ -3408,12 +3408,12 @@ while [ "$i" -lt 100 ]; do
 		XDG_RUNTIME_DIR=$runtime quickshell ipc --path "$config" call settings appearanceActiveTheme 2>/dev/null || true)
 	appearance_count=$(DISPLAY=$display HOME=$home XDG_CONFIG_HOME=$config_home XDG_DATA_HOME=$data_home \
 		XDG_RUNTIME_DIR=$runtime quickshell ipc --path "$config" call settings appearanceThemeCount 2>/dev/null || true)
-	[ "$appearance_theme" = 'missing theme' ] && [ "$appearance_count" -eq 15 ] && break
+	[ "$appearance_theme" = 'missing theme' ] && [ "$appearance_count" -eq 16 ] && break
 	i=$((i + 1))
 	sleep 0.05
 done
 [ "$appearance_theme" = 'missing theme' ]
-[ "$appearance_count" -eq 15 ]
+[ "$appearance_count" -eq 16 ]
 [ "$(DISPLAY=$display HOME=$home XDG_CONFIG_HOME=$config_home XDG_DATA_HOME=$data_home \
 	XDG_RUNTIME_DIR=$runtime quickshell ipc --path "$config" call settings appearanceProviderStatus)" = partial ]
 [ "$(DISPLAY=$display HOME=$home XDG_CONFIG_HOME=$config_home XDG_DATA_HOME=$data_home \
@@ -3440,12 +3440,12 @@ while [ "$i" -lt 100 ]; do
 		XDG_RUNTIME_DIR=$runtime quickshell ipc --path "$config" call settings appearanceProviderStatus 2>/dev/null || true)
 	appearance_count=$(DISPLAY=$display HOME=$home XDG_CONFIG_HOME=$config_home XDG_DATA_HOME=$data_home \
 		XDG_RUNTIME_DIR=$runtime quickshell ipc --path "$config" call settings appearanceThemeCount 2>/dev/null || true)
-	[ "$appearance_status" = partial ] && [ "$appearance_count" -eq 15 ] && break
+	[ "$appearance_status" = partial ] && [ "$appearance_count" -eq 16 ] && break
 	i=$((i + 1))
 	sleep 0.05
 done
 [ "$appearance_status" = partial ]
-[ "$appearance_count" -eq 15 ]
+[ "$appearance_count" -eq 16 ]
 [ "$(DISPLAY=$display HOME=$home XDG_CONFIG_HOME=$config_home XDG_DATA_HOME=$data_home \
 	XDG_RUNTIME_DIR=$runtime quickshell ipc --path "$config" call settings appearanceActiveTheme)" = nord ]
 cp "$work/valid-themes.toml" "$config_home/kinetixos/themes.toml"

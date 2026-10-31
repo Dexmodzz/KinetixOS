@@ -21,6 +21,15 @@ root_property_value() {
 	xprop -root "$prop" 2>/dev/null | sed -n 's/^[^=]*= //p'
 }
 
+compositor_active() {
+	if command -v pgrep >/dev/null 2>&1 &&
+		pgrep -u "$(id -u)" -x picom >/dev/null 2>&1; then
+		printf '1'
+	else
+		printf '0'
+	fi
+}
+
 root_status() {
 	xprop -root WM_NAME 2>/dev/null |
 		awk -F'= ' '
@@ -178,6 +187,7 @@ show_state() {
 	printf 'title=%s\n' "$title"
 	printf 'class=%s\n' "$class"
 	printf 'status=%s\n' "$status"
+	printf 'compositor=%s\n' "$(compositor_active)"
 }
 
 watch_state() {
