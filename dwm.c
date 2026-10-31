@@ -442,6 +442,8 @@ static Rule         *rt_rules  = NULL;
 static int           rt_nrules = 0;
 /* Runtime border pixel width (initialized to 1; overridden by themes.toml) */
 static unsigned int  dyn_borderpx;
+static unsigned int  dyn_gappx;      /* runtime gap; style profiles may override gappx */
+static int           dyn_outergap;   /* style gap also applies in full at screen edges */
 /* inotify */
 static int           inotify_fd = -1;
 static int           inotify_wd = -1;
@@ -1261,20 +1263,20 @@ dwindlegeom(Client *c, int x, int y, int w, int h)
 	int w1, h1;
 
 	if (!next) {
-		resize(c, x + gappx / 2, y + gappx / 2,
-			w - gappx - 2 * c->bw, h - gappx - 2 * c->bw, 0);
+		resize(c, x + dyn_gappx / 2, y + dyn_gappx / 2,
+			w - dyn_gappx - 2 * c->bw, h - dyn_gappx - 2 * c->bw, 0);
 		return;
 	}
 
 	if (w >= h) {
 		w1 = (int)(w * c->mon->mfact);
-		resize(c, x + gappx / 2, y + gappx / 2,
-			w1 - gappx - 2 * c->bw, h - gappx - 2 * c->bw, 0);
+		resize(c, x + dyn_gappx / 2, y + dyn_gappx / 2,
+			w1 - dyn_gappx - 2 * c->bw, h - dyn_gappx - 2 * c->bw, 0);
 		dwindlegeom(next, x + w1, y, w - w1, h);
 	} else {
 		h1 = (int)(h * c->mon->mfact);
-		resize(c, x + gappx / 2, y + gappx / 2,
-			w - gappx - 2 * c->bw, h1 - gappx - 2 * c->bw, 0);
+		resize(c, x + dyn_gappx / 2, y + dyn_gappx / 2,
+			w - dyn_gappx - 2 * c->bw, h1 - dyn_gappx - 2 * c->bw, 0);
 		dwindlegeom(next, x, y + h1, w, h - h1);
 	}
 }
@@ -1286,7 +1288,15 @@ dwindle(Monitor *m)
 
 	if (!(c = nexttiled(m->clients)))
 		return;
-	dwindlegeom(c, m->wx, m->wy, m->ww, m->wh);
+	if (dyn_outergap) {
+		/* Each window already keeps half a gap on every side; add the
+		 * other half at the screen edges so outer and inner gaps match. */
+		int half = (int)dyn_gappx / 2;
+		dwindlegeom(c, m->wx + half, m->wy + half,
+			m->ww - 2 * half, m->wh - 2 * half);
+	} else {
+		dwindlegeom(c, m->wx, m->wy, m->ww, m->wh);
+	}
 }
 
 void
@@ -3854,21 +3864,52 @@ load_themes_toml(const char *user_path, const char *default_path)
 		}
 	}
 
-	/* Update borderpx if specified */
-	const TomlValue *vbpx = toml_get(&doc, "appearance", "borderpx");
-	if (vbpx && vbpx->type == TOML_INT && vbpx->i >= 0) {
-		unsigned int newbpx = (unsigned int)vbpx->i;
-		if (newbpx != dyn_borderpx) {
-			dyn_borderpx = newbpx;
-			if (mons) {
-				Monitor *m;
-				Client  *c;
-				for (m = mons; m; m = m->next)
-					for (c = m->clients; c; c = c->next) {
-						c->bw = dyn_borderpx;
-						XSetWindowBorderWidth(dpy, c->win, c->bw);
-					}
+	/* Optional style profile: [theme.X] style = "name" -> [style.name].
+	 * Without one, gaps and borders keep their classic defaults. */
+	char style_section[TOML_MAX_STR] = "";
+	if (strcmp(color_section, "colors") != 0) {
+		const TomlValue *vstyle = toml_get(&doc, color_section, "style");
+		if (vstyle && vstyle->type == TOML_STRING && vstyle->s[0]) {
+			const char prefix[] = "style.";
+			size_t style_len = strlen(vstyle->s);
+			if (style_len < sizeof(style_section) - (sizeof(prefix) - 1)) {
+				memcpy(style_section, prefix, sizeof(prefix) - 1);
+				memcpy(style_section + sizeof(prefix) - 1, vstyle->s,
+				       style_len + 1);
 			}
+		}
+	}
+
+	unsigned int newgap = gappx;
+	int newoutergap = 0;
+	int newbpx = 1; /* initial dwm default when no key sets it */
+	const TomlValue *vbpx = toml_get(&doc, "appearance", "borderpx");
+	if (vbpx && vbpx->type == TOML_INT && vbpx->i >= 0)
+		newbpx = (int)vbpx->i;
+	if (style_section[0]) {
+		const TomlValue *vgap = toml_get(&doc, style_section, "gap");
+		const TomlValue *vsbpx = toml_get(&doc, style_section, "borderpx");
+		if (vgap && vgap->type == TOML_INT && vgap->i >= 0 && vgap->i <= 64) {
+			newgap = (unsigned int)vgap->i;
+			newoutergap = 1;
+		}
+		if (vsbpx && vsbpx->type == TOML_INT && vsbpx->i >= 0 && vsbpx->i <= 8)
+			newbpx = (int)vsbpx->i;
+	}
+	dyn_gappx = newgap;
+	dyn_outergap = newoutergap;
+
+	/* Update borderpx if specified */
+	if (newbpx >= 0 && (unsigned int)newbpx != dyn_borderpx) {
+		dyn_borderpx = (unsigned int)newbpx;
+		if (mons) {
+			Monitor *m;
+			Client  *c;
+			for (m = mons; m; m = m->next)
+				for (c = m->clients; c; c = c->next) {
+					c->bw = dyn_borderpx;
+					XSetWindowBorderWidth(dpy, c->win, c->bw);
+				}
 		}
 	}
 
@@ -4152,6 +4193,7 @@ setup(void)
 	/* The session helper uses SIGUSR2 for a normal, cleanup-aware exit. */
 	signal(SIGUSR2, sigusr2_handler);
 	dyn_borderpx = 1; /* initial value; overridden by themes.toml on load */
+	dyn_gappx = gappx;
 
 	/* the one line of bloat that would have saved a lot of time for a lot of people */
 	putenv("_JAVA_AWT_WM_NONREPARENTING=1");
