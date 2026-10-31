@@ -2233,4 +2233,91 @@ run_theme recover >/dev/null
 grep -Fqx $'recovery\tnone' < <(run_theme recovery-status)
 [[ ! -e $config_home/kinetixos/personalization.conf ]]
 
+# theme-apply hands the active style profile to the Picom helper, and asks it
+# to remove the theme block for themes without a complete profile.
+picom_style_log=$work/picom-style.log
+cat >"$work/picom-style-helper" <<'SH'
+#!/bin/sh
+printf '%s\n' "$*" >>"${DWM_TEST_PICOM_LOG:?}"
+printf '{"message": "Configuration already matches"}\n'
+SH
+chmod +x "$work/picom-style-helper"
+printf '#!/bin/sh\nexit 0\n' >"$work/integration-bin/picom"
+chmod +x "$work/integration-bin/picom"
+run_picom_style_apply() {
+	: >"$picom_style_log"
+	HOME=$home_dir XDG_CONFIG_HOME=$config_home XDG_DATA_HOME=$data_home \
+		XDG_STATE_HOME=$state_home XDG_RUNTIME_DIR=$runtime_dir DISPLAY=:97 \
+		DWM_APPEARANCE_THEMES_FILE=$themes_file DWM_APPEARANCE_MANAGED_THEMES_FILE=$managed_file \
+		DWM_APPEARANCE_PICOM_HELPER=$work/picom-style-helper \
+		DWM_TEST_PICOM_LOG=$picom_style_log DWM_TEST_LIVE_LOG=$work/live.log \
+		PATH=$work/integration-bin:$PATH "$repo/scripts/theme-apply.sh" \
+		>"$work/picom-style.out" 2>"$work/picom-style.err"
+}
+cp "$managed_file" "$themes_file"
+sed -i '0,/^theme = "nord"/s//theme = "moderno-morbido"/' "$themes_file"
+run_picom_style_apply
+grep -Fqx 'apply-theme-style 14 18 30 45 10' "$picom_style_log"
+# An unchanged block did not restart Picom, so the opacity reload still runs.
+grep -Fqx 'reload' "$picom_style_log"
+sed -i '0,/^theme = "moderno-morbido"/s//theme = "nord"/' "$themes_file"
+run_picom_style_apply
+grep -Fqx 'apply-theme-style' "$picom_style_log"
+cp "$managed_file" "$themes_file"
+sed -i '0,/^theme = "nord"/s//theme = "moderno-morbido"/' "$themes_file"
+sed -i '/^shadow_radius[[:space:]]*=/d' "$themes_file"
+run_picom_style_apply
+grep -Fqx 'apply-theme-style' "$picom_style_log"
+
+# merge-shipped adds only the shipped sections an existing user file lacks.
+{
+	printf '# my themes\n[active]\ntheme = "mine"\n\n[appearance]\nborderpx = 3\n\n'
+	printf '[theme.nord]\nnormfgcolor = "#111111"\n\n'
+	sed -n '/^\[theme\.nord\]$/,/^dark_mode/p' "$managed_file" |
+		sed 's/^\[theme\.nord\]$/[theme.mine]/'
+} >"$themes_file"
+before_merge=$(<"$themes_file")
+merge_output=$(run_theme merge-shipped)
+grep -q $'^result\tmerged\t' <<<"$merge_output"
+grep -Fq 'theme.moderno-morbido' <<<"$merge_output"
+grep -Fq 'style.soft' <<<"$merge_output"
+if grep -Eq $'(^|[\t ])theme\\.nord([\t ]|$)' <<<"$merge_output"; then
+	printf 'merge-shipped re-added a section the user file already defines\n' >&2
+	exit 1
+fi
+# The user's own lines are byte-identical and still come first.
+[[ $(head -c "${#before_merge}" "$themes_file") == "$before_merge" ]]
+grep -Fqx 'theme = "mine"' "$themes_file"
+grep -Fqx 'borderpx = 3' "$themes_file"
+grep -Fqx 'normfgcolor = "#111111"' "$themes_file"
+[[ $(grep -c '^\[theme\.nord\]$' "$themes_file") -eq 1 ]]
+[[ $(grep -c '^\[theme\.moderno-morbido\]$' "$themes_file") -eq 1 ]]
+[[ $(grep -c '^\[style\.soft\]$' "$themes_file") -eq 1 ]]
+merge_backup=$(awk -F '\t' '$1 == "result" { print $4 }' <<<"$merge_output")
+[[ -f $merge_backup && $(<"$merge_backup") == "$before_merge" ]]
+merged_once=$(<"$themes_file")
+grep -Fqx $'result\tcurrent' < <(run_theme merge-shipped)
+[[ $(<"$themes_file") == "$merged_once" ]]
+
+# A file that would exceed the runtime entry budget is left unchanged.
+{
+	printf '[active]\ntheme = "nord"\n[theme.filler]\n'
+	for index in $(seq 1 500); do
+		printf 'filler_%s = "x"\n' "$index"
+	done
+} >"$themes_file"
+before_budget=$(<"$themes_file")
+if run_theme merge-shipped >"$work/merge-budget.out" 2>"$work/merge-budget.err"; then
+	printf 'merge-shipped exceeded the runtime entry budget\n' >&2
+	exit 1
+fi
+grep -Fq 'do not fit' "$work/merge-budget.err"
+[[ $(<"$themes_file") == "$before_budget" ]]
+[[ -z $(find "$config_home/kinetixos" -name 'themes.toml.merge.*') ]]
+
+# Without a user file the managed file is used directly; nothing is created.
+rm -f "$themes_file"
+grep -Fqx $'result\tmanaged' < <(run_theme merge-shipped)
+[[ ! -e $themes_file ]]
+
 printf 'dwm settings theme tests passed\n'

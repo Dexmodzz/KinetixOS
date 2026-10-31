@@ -1327,11 +1327,38 @@ fi
 
 # Opacity is global. Reapply the current configuration without writing it into
 # theme transactions or their rollback archives. A stopped compositor stays stopped.
+# A theme with a style profile also owns one marked block (corners and shadows)
+# that follows the active theme: written for styled themes, removed otherwise.
+picom_style_args() {
+	local style key raw
+	style=$(theme_get style)
+	[[ $style =~ ^[A-Za-z0-9._-]{1,505}$ ]] || return 0
+	for key in corner_radius popup_radius shadow_radius shadow_opacity shadow_offset_y; do
+		raw=$(toml_get "style.$style" "$key" "$THEMES_FILE")
+		# An incomplete profile falls back to classic, as in the shell.
+		[[ $raw =~ ^[0-9]{1,3}$ ]] || return 0
+		printf '%s\n' "$raw"
+	done
+}
 if [[ $TRANSACTIONAL_APPLY == 0 && -n ${DISPLAY:-} ]] && command -v picom &>/dev/null; then
 	PICOM_HELPER=${DWM_APPEARANCE_PICOM_HELPER:-$script_dir/dwm-settings-picom}
 	if [[ -x $PICOM_HELPER ]]; then
-		"$PICOM_HELPER" reload >/dev/null ||
-			echo 'theme-apply: Picom reload failed; see Appearance > Compositor' >&2
+		picom_reload=1
+		if [[ $RUNTIME_ONLY == 0 ]]; then
+			mapfile -t PICOM_STYLE_ARGS < <(picom_style_args)
+			((${#PICOM_STYLE_ARGS[@]} == 5)) || PICOM_STYLE_ARGS=()
+			if picom_style_output=$("$PICOM_HELPER" apply-theme-style "${PICOM_STYLE_ARGS[@]}" 2>&1); then
+				# A published change already restarted a running compositor.
+				[[ $picom_style_output != *'. Backup: '* ]] || picom_reload=0
+			else
+				printf 'theme-apply: Picom theme style was not applied: %s\n' \
+					"${picom_style_output##*$'\n'}" >&2
+			fi
+		fi
+		if ((picom_reload == 1)); then
+			"$PICOM_HELPER" reload >/dev/null ||
+				echo 'theme-apply: Picom reload failed; see Appearance > Compositor' >&2
+		fi
 	fi
 fi
 

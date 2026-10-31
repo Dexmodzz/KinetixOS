@@ -285,7 +285,17 @@ install-user-files:
 	@echo "==> Seeding user config (skipping existing files)..."
 	mkdir -p ${CFG_DIR}/kinetixos
 	test -f ${CFG_DIR}/kinetixos/hotkeys.toml || install -Dm644 config/hotkeys.toml ${CFG_DIR}/kinetixos/hotkeys.toml
-	test -f ${CFG_DIR}/kinetixos/themes.toml  || install -Dm644 config/themes.toml  ${CFG_DIR}/kinetixos/themes.toml
+	if [ -f ${CFG_DIR}/kinetixos/themes.toml ]; then \
+		HOME="${USER_HOME}" XDG_CONFIG_HOME="${XDG_CONFIG_HOME}" XDG_DATA_HOME="${XDG_DATA_HOME}" \
+			XDG_STATE_HOME="${XDG_STATE_HOME}" \
+			DWM_APPEARANCE_THEMES_FILE="${CFG_DIR}/kinetixos/themes.toml" \
+			DWM_APPEARANCE_MANAGED_THEMES_FILE="${DATA_DIR}/config/themes.toml" \
+			DWM_SETTINGS_APPEARANCE_HELPER="$$(pwd)/scripts/dwm-settings-appearance" \
+			scripts/dwm-settings-theme merge-shipped >/dev/null || \
+			echo "  Warning: new shipped themes were not added to ${CFG_DIR}/kinetixos/themes.toml" >&2; \
+	else \
+		install -Dm644 config/themes.toml ${CFG_DIR}/kinetixos/themes.toml; \
+	fi
 	test -f ${CFG_DIR}/kinetixos/window-rules.toml || install -Dm644 config/window-rules.toml ${CFG_DIR}/kinetixos/window-rules.toml
 	@echo "==> Migrating legacy graphical-session startup..."
 	HOME="${USER_HOME}" XDG_CONFIG_HOME="${XDG_CONFIG_HOME}" scripts/migrate-graphical-session.sh
@@ -557,6 +567,7 @@ check-appearance:
 	tests/test-dwm-settings-personalization.sh
 	tests/test-dwm-settings-wallpaper.sh
 	tests/test-dwm-settings-theme.sh
+	python3 tests/test-theme-contrast.py
 	tests/test-dwm-xsettings.sh
 
 check-phase5-optional-components:

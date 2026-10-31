@@ -56,6 +56,95 @@ class PicomTests(unittest.TestCase):
     def apply(self, config, active=90, inactive=75):
         return picom.mutate("set-opacity", [active, inactive], config.revision())
 
+    SOFT = [14, 18, 30, 45, 10]
+
+    def test_theme_style_created_on_missing_config_and_removed(self):
+        self.assertEqual(
+            picom.apply_theme_style([]), "No theme style to remove"
+        )
+        self.assertFalse(self.path.exists())
+        picom.apply_theme_style(self.SOFT)
+        text = self.path.read_text()
+        self.assertIn(picom.STYLE_BEGIN, text)
+        self.assertIn("corner-radius = 14;", text)
+        self.assertIn("shadow-opacity = 0.45;", text)
+        self.assertIn("shadow-offset-y = -20;", text)
+        # A new configuration gets a rules list so the launcher keeps its radius.
+        self.assertIn(picom.STYLE_RULES_BEGIN, text)
+        self.assertIn("corner-radius = 18;", text)
+        self.assertNotIn("shadow-exclude", text)
+        self.assertEqual(
+            picom.apply_theme_style(self.SOFT), "Configuration already matches"
+        )
+        picom.apply_theme_style([])
+        self.assertEqual(self.path.read_text(), "rules = (\n);\n")
+        self.assertEqual(picom.Configuration().opacity(), (1.0, 1.0))
+        picom.apply_theme_style(self.SOFT)
+        self.assertEqual(self.path.read_text(), text)
+
+    def test_theme_style_keeps_legacy_configurations_legacy(self):
+        self.apply(self.write('backend = "glx";\n'))
+        before = self.path.read_text()
+        picom.apply_theme_style(self.SOFT)
+        text = self.path.read_text()
+        self.assertNotIn("rules", text)
+        self.assertIn("shadow-exclude", text)
+        self.assertIn("rounded-corners-exclude", text)
+        self.assertEqual(picom.Configuration().opacity(), (0.9, 0.75))
+        picom.apply_theme_style([])
+        self.assertEqual(self.path.read_text(), before)
+
+    def test_theme_style_rules_round_trip_preserves_opacity_block(self):
+        custom = "{ match=\"class_g = 'Alacritty'\"; opacity=.8; }"
+        self.apply(self.write("rules = (" + custom + ');\nbackend="glx";\n'))
+        before = self.path.read_text()
+        picom.apply_theme_style(self.SOFT)
+        text = self.path.read_text()
+        self.assertIn(picom.STYLE_RULES_BEGIN, text)
+        self.assertNotIn("shadow-exclude", text)
+        # Theme rules come first so opacity defaults and custom rules win.
+        self.assertLess(text.index(picom.STYLE_RULES_END), text.index(picom.BEGIN))
+        self.assertLess(text.index(picom.BEGIN), text.index(custom))
+        self.assertEqual(picom.Configuration().opacity(), (0.9, 0.75))
+        picom.apply_theme_style([])
+        self.assertEqual(self.path.read_text(), before)
+
+    def test_theme_style_values_are_replaced_not_duplicated(self):
+        picom.apply_theme_style(self.SOFT)
+        picom.apply_theme_style([10, 12, 20, 30, 4])
+        text = self.path.read_text()
+        self.assertEqual(text.count(picom.STYLE_BEGIN), 1)
+        self.assertIn("corner-radius = 10;", text)
+        self.assertNotIn("corner-radius = 14;", text)
+
+    def test_custom_settings_take_precedence_over_theme_style(self):
+        self.write("shadow = false;\n")
+        with self.assertRaisesRegex(picom.Error, "takes precedence"):
+            picom.apply_theme_style(self.SOFT)
+        self.assertEqual(self.path.read_text(), "shadow = false;\n")
+
+    def test_theme_style_imports_vendor_config_first(self):
+        vendor = self.home / "vendor"
+        vendor.mkdir()
+        source = vendor / "picom.conf"
+        source.write_text('backend="glx";\n')
+        picom.apply_theme_style(self.SOFT)
+        self.assertEqual(source.read_text(), 'backend="glx";\n')
+        self.assertIn(picom.STYLE_BEGIN, self.path.read_text())
+        self.assertIn('backend="glx";', self.path.read_text())
+
+    def test_theme_style_rejects_out_of_range_values(self):
+        with self.assertRaises(picom.Error):
+            picom.apply_theme_style([14, 18, 300, 45, 10])
+        self.assertFalse(self.path.exists())
+
+    def test_theme_style_skipped_without_picom(self):
+        with patch.object(picom.shutil, "which", return_value=None):
+            self.assertEqual(
+                picom.apply_theme_style(self.SOFT), "Picom is not installed"
+            )
+        self.assertFalse(self.path.exists())
+
     def test_display_screen_identity(self):
         self.assertEqual(picom.display_name(":0.0"), picom.display_name("unix:0"))
         self.assertNotEqual(picom.display_name(":0.1"), picom.display_name(":0"))
