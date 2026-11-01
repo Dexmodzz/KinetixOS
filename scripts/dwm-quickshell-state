@@ -190,10 +190,7 @@ show_state() {
 	printf 'compositor=%s\n' "$(compositor_active)"
 }
 
-watch_state() {
-	show_state
-	printf '\n'
-
+spy_root_events() {
 	if xprop -root _DWM_MONITOR_DESKTOPS >/dev/null 2>&1; then
 		xprop -root -spy \
 			DWM_TAG_UPDATE \
@@ -215,7 +212,31 @@ watch_state() {
 			_NET_CLIENT_LIST \
 			_DWM_FULLSCREEN_MONITORS \
 			WM_NAME 2>/dev/null
-	fi |
+	fi
+}
+
+# Picom often starts after the shell, and starting or stopping it changes no
+# root property, so poll for it and emit a line only when the state flips.
+watch_compositor() {
+	parent=$1
+	last=$(compositor_active)
+	while kill -0 "$parent" 2>/dev/null && sleep 3; do
+		now=$(compositor_active)
+		if [ "$now" != "$last" ]; then
+			last=$now
+			printf 'compositor\n'
+		fi
+	done
+}
+
+watch_state() {
+	show_state
+	printf '\n'
+
+	{
+		watch_compositor "$$" &
+		spy_root_events
+	} |
 		while IFS= read -r _event; do
 			show_state
 			printf '\n'
