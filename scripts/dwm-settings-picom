@@ -689,6 +689,68 @@ def owner():
         lib.XCloseDisplay(connection)
 
 
+def owner_watch():
+    """Print compositor=0|1 now and on every compositor selection change.
+
+    XFixes reports when the _NET_WM_CM_S<screen> owner changes or its window
+    goes away, so a Picom start, stop or crash arrives as an event; nothing
+    polls. The process exits with its parent (prctl), when its reader goes
+    away (broken pipe), or when the X server closes the connection.
+    """
+    if not os.environ.get("DISPLAY"):
+        raise Error("DISPLAY is not set")
+    libc = ctypes.CDLL(None)
+    libc.prctl(1, signal.SIGTERM, 0, 0, 0)
+    lib = ctypes.CDLL(ctypes.util.find_library("X11") or "libX11.so.6")
+    fixes = ctypes.CDLL(ctypes.util.find_library("Xfixes") or "libXfixes.so.3")
+    lib.XOpenDisplay.argtypes = [ctypes.c_char_p]
+    lib.XOpenDisplay.restype = ctypes.c_void_p
+    lib.XDefaultScreen.argtypes = [ctypes.c_void_p]
+    lib.XRootWindow.argtypes = [ctypes.c_void_p, ctypes.c_int]
+    lib.XRootWindow.restype = ctypes.c_ulong
+    lib.XInternAtom.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_int]
+    lib.XInternAtom.restype = ctypes.c_ulong
+    lib.XGetSelectionOwner.argtypes = [ctypes.c_void_p, ctypes.c_ulong]
+    lib.XGetSelectionOwner.restype = ctypes.c_ulong
+    lib.XNextEvent.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+    lib.XFlush.argtypes = [ctypes.c_void_p]
+    fixes.XFixesQueryExtension.argtypes = [
+        ctypes.c_void_p,
+        ctypes.POINTER(ctypes.c_int),
+        ctypes.POINTER(ctypes.c_int),
+    ]
+    fixes.XFixesSelectSelectionInput.argtypes = [
+        ctypes.c_void_p,
+        ctypes.c_ulong,
+        ctypes.c_ulong,
+        ctypes.c_ulong,
+    ]
+    connection = lib.XOpenDisplay(None)
+    if not connection:
+        raise Error("Cannot open the current X display")
+    event_base, error_base = ctypes.c_int(), ctypes.c_int()
+    if not fixes.XFixesQueryExtension(
+        connection, ctypes.byref(event_base), ctypes.byref(error_base)
+    ):
+        raise Error("The X server lacks the XFixes extension")
+    screen = lib.XDefaultScreen(connection)
+    atom = lib.XInternAtom(connection, f"_NET_WM_CM_S{screen}".encode(), 0)
+    # SetSelectionOwner, SelectionWindowDestroy and SelectionClientClose.
+    fixes.XFixesSelectSelectionInput(
+        connection, lib.XRootWindow(connection, screen), atom, 1 | 2 | 4
+    )
+    lib.XFlush(connection)
+    # Subscribe first, then sample, so a change between the two is not lost.
+    last = None
+    event = ctypes.create_string_buffer(192)  # sizeof(XEvent) on LP64
+    while True:
+        current = 1 if lib.XGetSelectionOwner(connection, atom) else 0
+        if current != last:
+            last = current
+            print(f"compositor={current}", flush=True)
+        lib.XNextEvent(connection, event)
+
+
 def stop(running):
     for proc in running:
         current = next(
@@ -1322,7 +1384,16 @@ def apply_theme_style(values):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     subs = parser.add_subparsers(dest="action", required=True)
-    for action in ("status", "watch", "start", "restart", "reload", "stop", "toggle"):
+    for action in (
+        "status",
+        "watch",
+        "owner-watch",
+        "start",
+        "restart",
+        "reload",
+        "stop",
+        "toggle",
+    ):
         subs.add_parser(action)
     opacity = subs.add_parser("set-opacity")
     opacity.add_argument("active", type=float)
@@ -1346,6 +1417,11 @@ def main():
         print(json.dumps(status()))
     elif args.action == "watch":
         watch()
+    elif args.action == "owner-watch":
+        try:
+            owner_watch()
+        except BrokenPipeError:
+            pass
     elif args.action == "apply-theme-style":
         if args.values and len(args.values) != len(STYLE_ARGS):
             parser.error(f"apply-theme-style takes {len(STYLE_ARGS)} values or none")

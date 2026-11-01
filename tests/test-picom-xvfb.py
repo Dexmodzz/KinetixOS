@@ -104,13 +104,38 @@ def main():
                 return json.loads(result.stdout) if success else result
 
             conf = config / "picom.conf"
+            owner_watch = subprocess.Popen(
+                [str(repo / "scripts/dwm-settings-picom"), "owner-watch"],
+                env=env,
+                text=True,
+                stdout=subprocess.PIPE,
+            )
+
+            def owner_line(expected):
+                deadline = time.monotonic() + 10
+                while time.monotonic() < deadline:
+                    if not select.select([owner_watch.stdout], [], [], 0.2)[0]:
+                        continue
+                    line = owner_watch.stdout.readline().strip()
+                    if line == expected:
+                        return
+                    if not line:
+                        break
+                raise AssertionError(f"owner-watch never printed {expected}")
+
+            owner_line("compositor=0")
             helper("start")
+            owner_line("compositor=1")
             fresh = helper("status")
             assert fresh["editable"] and not conf.exists()
             helper("set-opacity", "100", "100", fresh["revision"])
             assert conf.exists()
             helper("stop")
+            owner_line("compositor=0")
+            owner_watch.terminate()
+            assert owner_watch.wait(timeout=5) is not None
             print("PASS: first edit after startup without configuration", flush=True)
+            print("PASS: owner-watch reports Picom start and stop as events", flush=True)
             conf.write_text(
                 'backend="xrender";\nactive-opacity=1.0;\ninactive-opacity=1.0;\nfading=false;\nshadow=false;\nuse-ewmh-active-win=true;\n'
             )

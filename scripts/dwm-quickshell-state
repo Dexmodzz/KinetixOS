@@ -22,6 +22,11 @@ root_property_value() {
 }
 
 compositor_active() {
+	# In watch mode the XFixes watcher is authoritative.
+	if [ -n "${KINETIXOS_COMPOSITOR:-}" ]; then
+		printf '%s' "$KINETIXOS_COMPOSITOR"
+		return
+	fi
 	if command -v pgrep >/dev/null 2>&1 &&
 		pgrep -u "$(id -u)" -x picom >/dev/null 2>&1; then
 		printf '1'
@@ -216,17 +221,12 @@ spy_root_events() {
 }
 
 # Picom often starts after the shell, and starting or stopping it changes no
-# root property, so poll for it and emit a line only when the state flips.
-watch_compositor() {
-	parent=$1
-	last=$(compositor_active)
-	while kill -0 "$parent" 2>/dev/null && sleep 3; do
-		now=$(compositor_active)
-		if [ "$now" != "$last" ]; then
-			last=$now
-			printf 'compositor\n'
-		fi
-	done
+# root property. dwm-settings-picom owner-watch streams the compositor
+# selection owner from XFixes events and prints compositor=0|1 on each change.
+picom_helper() {
+	helper=${0%/*}/dwm-settings-picom
+	[ -x "$helper" ] || helper=$(command -v dwm-settings-picom 2>/dev/null) || return 1
+	printf '%s' "$helper"
 }
 
 watch_state() {
@@ -234,10 +234,23 @@ watch_state() {
 	printf '\n'
 
 	{
-		watch_compositor "$$" &
-		spy_root_events
+		compositor_watcher=
+		if helper=$(picom_helper); then
+			# Started as a plain background command so $! is the watcher itself.
+			"$helper" owner-watch 2>/dev/null &
+			compositor_watcher=$!
+		fi
+		spy_root_events || :
+		# Without the root spy there is no state stream; end the watcher so
+		# the reader sees EOF and the command exits.
+		if [ -n "$compositor_watcher" ]; then
+			kill "$compositor_watcher" 2>/dev/null || :
+		fi
 	} |
-		while IFS= read -r _event; do
+		while IFS= read -r event; do
+			case $event in
+			compositor=[01]) KINETIXOS_COMPOSITOR=${event#compositor=} ;;
+			esac
 			show_state
 			printf '\n'
 		done
