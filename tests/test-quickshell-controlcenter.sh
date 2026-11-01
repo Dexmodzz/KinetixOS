@@ -650,9 +650,19 @@ grep -Fq 'trimmed.indexOf("BAT ") === 0' "$repo/config/quickshell/state/DwmState
 # between them, and only while a compositor can draw transparent pixels. The
 # window itself is always created transparent (Quickshell picks the surface
 # format once), and an opaque backdrop covers it otherwise.
-grep -Fq 'color: Theme.transparent' "$repo/config/quickshell/panel/DwmPanel.qml"
-grep -A2 -F 'visible: !Theme.barIslandsTransparent' "$repo/config/quickshell/panel/DwmPanel.qml" |
-	grep -Fq 'color: Theme.barBackground'
+# Exact indentation pins the window-level color and the top-level backdrop.
+grep -Fxq '    color: Theme.transparent' "$repo/config/quickshell/panel/DwmPanel.qml"
+if grep -Fxq '    color: Theme.barBackground' "$repo/config/quickshell/panel/DwmPanel.qml"; then
+	exit 1
+fi
+awk '
+	/^    Rectangle \{$/ { block = 1; fill = visible = color = 0; next }
+	block && /^    \}$/ { if (fill && visible && color) found = 1; block = 0; next }
+	block && /^        anchors.fill: parent$/ { fill = 1 }
+	block && /^        visible: !Theme.barIslandsTransparent$/ { visible = 1 }
+	block && /^        color: Theme.barBackground$/ { color = 1 }
+	END { exit found ? 0 : 1 }
+' "$repo/config/quickshell/panel/DwmPanel.qml"
 grep -Fq 'readonly property bool barIslandsTransparent: styleBarIslands && compositorActive' \
 	"$repo/config/quickshell/core/Theme.qml"
 grep -Fq 'color: Theme.barBackground' "$repo/config/quickshell/panel/PanelIsland.qml"

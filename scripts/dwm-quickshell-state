@@ -1,6 +1,9 @@
 #!/bin/sh
 set -eu
 
+# Set only by the watch loop from the XFixes watcher; never from the environment.
+watched_compositor=
+
 print_default_names() {
 	count=${1:-9}
 	i=1
@@ -23,8 +26,8 @@ root_property_value() {
 
 compositor_active() {
 	# In watch mode the XFixes watcher is authoritative.
-	if [ -n "${KINETIXOS_COMPOSITOR:-}" ]; then
-		printf '%s' "$KINETIXOS_COMPOSITOR"
+	if [ -n "$watched_compositor" ]; then
+		printf '%s' "$watched_compositor"
 		return
 	fi
 	if command -v pgrep >/dev/null 2>&1 &&
@@ -237,7 +240,9 @@ watch_state() {
 		compositor_watcher=
 		if helper=$(picom_helper); then
 			# Started as a plain background command so $! is the watcher itself.
-			"$helper" owner-watch 2>/dev/null &
+			# It also exits on its own when this script ends ($$ is the top
+			# level even inside the pipeline subshell). Errors go to stderr.
+			"$helper" owner-watch --parent "$$" &
 			compositor_watcher=$!
 		fi
 		spy_root_events || :
@@ -249,7 +254,7 @@ watch_state() {
 	} |
 		while IFS= read -r event; do
 			case $event in
-			compositor=[01]) KINETIXOS_COMPOSITOR=${event#compositor=} ;;
+			compositor=[01]) watched_compositor=${event#compositor=} ;;
 			esac
 			show_state
 			printf '\n'

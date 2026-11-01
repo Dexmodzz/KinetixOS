@@ -10,6 +10,7 @@ PanelPill {
     Layout.preferredWidth: Theme.pillHeight
     Layout.preferredHeight: Theme.pillHeight
     hovered: logoMouse.containsMouse
+    radius: Theme.styleBarIslands ? Theme.logoRadius : Theme.pillRadius
 
     Image {
         id: logoImage

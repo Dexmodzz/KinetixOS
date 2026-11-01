@@ -105,35 +105,46 @@ def main():
 
             conf = config / "picom.conf"
             owner_watch = subprocess.Popen(
-                [str(repo / "scripts/dwm-settings-picom"), "owner-watch"],
+                [
+                    str(repo / "scripts/dwm-settings-picom"),
+                    "owner-watch",
+                    "--parent",
+                    str(os.getpid()),
+                ],
                 env=env,
-                text=True,
                 stdout=subprocess.PIPE,
             )
+            pending = b""
 
             def owner_line(expected):
+                # Read the raw fd so select() never misses a buffered line.
+                nonlocal pending
                 deadline = time.monotonic() + 10
                 while time.monotonic() < deadline:
-                    if not select.select([owner_watch.stdout], [], [], 0.2)[0]:
-                        continue
-                    line = owner_watch.stdout.readline().strip()
-                    if line == expected:
-                        return
-                    if not line:
-                        break
+                    while b"\n" in pending:
+                        line, pending = pending.split(b"\n", 1)
+                        if line.decode() == expected:
+                            return
+                    if select.select([owner_watch.stdout], [], [], 0.2)[0]:
+                        chunk = os.read(owner_watch.stdout.fileno(), 4096)
+                        if not chunk:
+                            break
+                        pending += chunk
                 raise AssertionError(f"owner-watch never printed {expected}")
 
-            owner_line("compositor=0")
-            helper("start")
-            owner_line("compositor=1")
-            fresh = helper("status")
-            assert fresh["editable"] and not conf.exists()
-            helper("set-opacity", "100", "100", fresh["revision"])
-            assert conf.exists()
-            helper("stop")
-            owner_line("compositor=0")
-            owner_watch.terminate()
-            assert owner_watch.wait(timeout=5) is not None
+            try:
+                owner_line("compositor=0")
+                helper("start")
+                owner_line("compositor=1")
+                fresh = helper("status")
+                assert fresh["editable"] and not conf.exists()
+                helper("set-opacity", "100", "100", fresh["revision"])
+                assert conf.exists()
+                helper("stop")
+                owner_line("compositor=0")
+            finally:
+                owner_watch.terminate()
+                owner_watch.wait(timeout=5)
             print("PASS: first edit after startup without configuration", flush=True)
             print("PASS: owner-watch reports Picom start and stop as events", flush=True)
             conf.write_text(
