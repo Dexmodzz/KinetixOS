@@ -10,29 +10,11 @@ PanelPill {
     Layout.preferredWidth: Theme.pillHeight
     Layout.preferredHeight: Theme.pillHeight
     hovered: logoMouse.containsMouse
-
-    // Soft style: a "K" on a small accent tile instead of the color logo.
-    Rectangle {
-        anchors.centerIn: parent
-        visible: Theme.styleBarIslands
-        width: Theme.compactWidgetSize
-        height: Theme.compactWidgetSize
-        radius: Theme.logoRadius
-        color: Theme.accent
-
-        UiText {
-            anchors.centerIn: parent
-            text: "K"
-            color: Theme.accentText
-            font.pixelSize: Theme.panelFontSize
-            font.weight: Theme.styleFontWeightStrong
-        }
-    }
+    radius: Theme.styleBarIslands ? Theme.logoRadius : Theme.pillRadius
 
     Image {
         id: logoImage
 
-        visible: !Theme.styleBarIslands
         anchors.centerIn: parent
         width: Theme.scaledSize(24)
         height: Theme.scaledSize(25.2)
@@ -45,7 +27,7 @@ PanelPill {
 
     UiText {
         anchors.centerIn: parent
-        visible: !Theme.styleBarIslands && logoImage.status === Image.Error
+        visible: logoImage.status === Image.Error
         text: "CTT"
         color: Theme.accent
         font.pixelSize: Theme.tinyFontSize

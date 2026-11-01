@@ -43,7 +43,10 @@ PanelWindow {
     readonly property bool islands: Theme.styleBarIslands
 
     implicitHeight: Theme.panelWindowHeight
-    color: Theme.barIslandsTransparent ? Theme.transparent : Theme.barBackground
+    // Always create the window with a transparent color: Quickshell picks an
+    // alpha-capable surface only at creation, and the shell can start before
+    // Picom. The backdrop below paints the solid bar when gaps must not show.
+    color: Theme.transparent
     exclusiveZone: Theme.panelWindowHeight
     aboveWindows: root.state.fullscreenMonitorIndexes.indexOf(
         root.state.screenIndex(root.screen)) === -1
@@ -52,6 +55,12 @@ PanelWindow {
         top: true
         left: true
         right: true
+    }
+
+    Rectangle {
+        anchors.fill: parent
+        visible: !Theme.barIslandsTransparent
+        color: Theme.barBackground
     }
 
     Rectangle {

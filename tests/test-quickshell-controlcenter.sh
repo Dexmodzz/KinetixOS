@@ -647,9 +647,22 @@ fi
 grep -Fq 'root.batteryAvailable = true;' "$repo/config/quickshell/state/DwmState.qml"
 grep -Fq 'trimmed.indexOf("BAT ") === 0' "$repo/config/quickshell/state/DwmState.qml"
 # The panel stays opaque. Only a style with bar islands may show the wallpaper
-# between them, and only while a compositor can draw transparent pixels.
-grep -Fq 'color: Theme.barIslandsTransparent ? Theme.transparent : Theme.barBackground' \
-	"$repo/config/quickshell/panel/DwmPanel.qml"
+# between them, and only while a compositor can draw transparent pixels. The
+# window itself is always created transparent (Quickshell picks the surface
+# format once), and an opaque backdrop covers it otherwise.
+# Exact indentation pins the window-level color and the top-level backdrop.
+grep -Fxq '    color: Theme.transparent' "$repo/config/quickshell/panel/DwmPanel.qml"
+if grep -Fxq '    color: Theme.barBackground' "$repo/config/quickshell/panel/DwmPanel.qml"; then
+	exit 1
+fi
+awk '
+	/^    Rectangle \{$/ { block = 1; fill = visible = color = 0; next }
+	block && /^    \}$/ { if (fill && visible && color) found = 1; block = 0; next }
+	block && /^        anchors.fill: parent$/ { fill = 1 }
+	block && /^        visible: !Theme.barIslandsTransparent$/ { visible = 1 }
+	block && /^        color: Theme.barBackground$/ { color = 1 }
+	END { exit found ? 0 : 1 }
+' "$repo/config/quickshell/panel/DwmPanel.qml"
 grep -Fq 'readonly property bool barIslandsTransparent: styleBarIslands && compositorActive' \
 	"$repo/config/quickshell/core/Theme.qml"
 grep -Fq 'color: Theme.barBackground' "$repo/config/quickshell/panel/PanelIsland.qml"
@@ -660,9 +673,6 @@ grep -Fq 'root.state.screenIndex(root.screen)) === -1' \
 grep -Fq 'property var fullscreenMonitorIndexes: []' \
 	"$repo/config/quickshell/state/DwmState.qml"
 grep -Fq 'key === "fullscreen_monitors"' "$repo/config/quickshell/state/DwmState.qml"
-if grep -Fq 'color: Theme.transparent' "$repo/config/quickshell/panel/DwmPanel.qml"; then
-	exit 1
-fi
 grep -Fq 'root.controlsModel.volumeUp();' "$repo/config/quickshell/panel/DwmPanel.qml"
 grep -Fq 'root.controlsModel.volumeDown();' "$repo/config/quickshell/panel/DwmPanel.qml"
 grep -Fq 'visible: root.controlsModel.volumeText !== "VOL unavailable"' "$repo/config/quickshell/panel/DwmPanel.qml"

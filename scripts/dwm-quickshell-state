@@ -1,6 +1,9 @@
 #!/bin/sh
 set -eu
 
+# Set only by the watch loop from the XFixes watcher; never from the environment.
+watched_compositor=
+
 print_default_names() {
 	count=${1:-9}
 	i=1
@@ -22,6 +25,11 @@ root_property_value() {
 }
 
 compositor_active() {
+	# In watch mode the XFixes watcher is authoritative.
+	if [ -n "$watched_compositor" ]; then
+		printf '%s' "$watched_compositor"
+		return
+	fi
 	if command -v pgrep >/dev/null 2>&1 &&
 		pgrep -u "$(id -u)" -x picom >/dev/null 2>&1; then
 		printf '1'
@@ -190,10 +198,7 @@ show_state() {
 	printf 'compositor=%s\n' "$(compositor_active)"
 }
 
-watch_state() {
-	show_state
-	printf '\n'
-
+spy_root_events() {
 	if xprop -root _DWM_MONITOR_DESKTOPS >/dev/null 2>&1; then
 		xprop -root -spy \
 			DWM_TAG_UPDATE \
@@ -215,8 +220,42 @@ watch_state() {
 			_NET_CLIENT_LIST \
 			_DWM_FULLSCREEN_MONITORS \
 			WM_NAME 2>/dev/null
-	fi |
-		while IFS= read -r _event; do
+	fi
+}
+
+# Picom often starts after the shell, and starting or stopping it changes no
+# root property. dwm-settings-picom owner-watch streams the compositor
+# selection owner from XFixes events and prints compositor=0|1 on each change.
+picom_helper() {
+	helper=${0%/*}/dwm-settings-picom
+	[ -x "$helper" ] || helper=$(command -v dwm-settings-picom 2>/dev/null) || return 1
+	printf '%s' "$helper"
+}
+
+watch_state() {
+	show_state
+	printf '\n'
+
+	{
+		compositor_watcher=
+		if helper=$(picom_helper); then
+			# Started as a plain background command so $! is the watcher itself.
+			# It also exits on its own when this script ends ($$ is the top
+			# level even inside the pipeline subshell). Errors go to stderr.
+			"$helper" owner-watch --parent "$$" &
+			compositor_watcher=$!
+		fi
+		spy_root_events || :
+		# Without the root spy there is no state stream; end the watcher so
+		# the reader sees EOF and the command exits.
+		if [ -n "$compositor_watcher" ]; then
+			kill "$compositor_watcher" 2>/dev/null || :
+		fi
+	} |
+		while IFS= read -r event; do
+			case $event in
+			compositor=[01]) watched_compositor=${event#compositor=} ;;
+			esac
 			show_state
 			printf '\n'
 		done
