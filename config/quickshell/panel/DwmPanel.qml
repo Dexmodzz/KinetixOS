@@ -69,8 +69,10 @@ PanelWindow {
 
     Rectangle {
         anchors.fill: parent
-        visible: root.macLayout || !Theme.barIslandsTransparent
-        color: root.macLayout ? Theme.withAlpha(Theme.barBackground, Theme.styleBarOpacity) : Theme.barBackground
+        visible: !Theme.barIslandsTransparent
+        color: Theme.barBackground
+        // macOS layout: a translucent strip the compositor blurs.
+        opacity: root.macLayout ? Theme.styleBarOpacity / 100 : 1
     }
 
     Rectangle {

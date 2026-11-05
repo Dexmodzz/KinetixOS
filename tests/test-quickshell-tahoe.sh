@@ -26,7 +26,7 @@ grep -Fq 'visible: Theme.styleBarLayout !== "macos"' "$shell/panel/RunningAppsAr
 grep -Fq 'text: root.clock.macText' "$panel" || fail "macos layout lacks the menu bar clock"
 grep -Fq 'apple: root.macLayout' "$panel" || fail "logo does not switch to the apple glyph"
 grep -Fq 'dot: root.macLayout' "$panel" || fail "workspaces do not render as dots"
-grep -Fq 'Theme.withAlpha(Theme.barBackground, Theme.styleBarOpacity)' "$panel" ||
+grep -Fq 'opacity: root.macLayout ? Theme.styleBarOpacity / 100 : 1' "$panel" ||
 	fail "macos bar background ignores bar_opacity"
 grep -Fq 'root.macText = Qt.formatDateTime(current, "ddd d MMM HH:mm");' "$shell/core/ClockModel.qml" ||
 	fail "ClockModel lacks macText"
