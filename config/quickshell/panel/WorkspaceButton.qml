@@ -11,25 +11,39 @@ Rectangle {
     // Soft style: the active tag is a wider accent pill, occupied tags use the
     // main text color, and empty tags fade to the faint text color.
     property bool soft: false
+    // macOS layout: a small dot, filled for the current tag and dimmed for
+    // empty ones.
+    property bool dot: false
     signal clicked()
 
-    Layout.preferredWidth: soft && selected ? Theme.workspaceButtonSize * 2 : Theme.workspaceButtonSize
+    Layout.preferredWidth: dot ? Theme.scaledSize(14) : soft && selected ? Theme.workspaceButtonSize * 2 : Theme.workspaceButtonSize
     Layout.preferredHeight: Theme.workspaceButtonSize
     radius: soft ? Theme.pillRadius : Theme.smallRadius
-    color: soft ? (selected ? Theme.accent
+    color: dot ? Theme.transparent : soft ? (selected ? Theme.accent
             : workspaceMouse.containsMouse ? Theme.accentSoft : Theme.transparent)
         : selected ? Theme.controlSelectedFill
         : workspaceMouse.containsMouse ? Theme.controlHoverFill : Theme.transparent
     border.color: selected ? Theme.controlSelectedBorder
         : workspaceMouse.containsMouse ? Theme.controlHoverBorder : Theme.transparent
-    border.width: !soft && (selected || workspaceMouse.containsMouse) ? Theme.pillBorderWidth : 0
+    border.width: !dot && !soft && (selected || workspaceMouse.containsMouse) ? Theme.pillBorderWidth : 0
 
     Behavior on Layout.preferredWidth {
         NumberAnimation { duration: Theme.animationNormal }
     }
 
+    Rectangle {
+        anchors.centerIn: parent
+        visible: root.dot
+        width: Theme.scaledSize(root.selected ? 7 : 5)
+        height: width
+        radius: width / 2
+        color: root.selected ? Theme.textStrong
+            : root.occupied || workspaceMouse.containsMouse ? Theme.textSecondary : Theme.textFaint
+    }
+
     Text {
         anchors.centerIn: parent
+        visible: !root.dot
         text: root.label
         color: root.soft ? (root.selected ? Theme.accentText
                 : root.occupied || workspaceMouse.containsMouse ? Theme.text : Theme.textFaint)

@@ -14,6 +14,8 @@ Scope {
     // Split date and time for panels that style them separately.
     property string dateText: ""
     property string timeText: ""
+    // macOS menu bar style, e.g. "gio 5 nov 14:32" in the system locale.
+    property string macText: ""
     property double timestamp: 0
 
     function refreshDisplay() {
@@ -27,6 +29,7 @@ Scope {
         const date = Qt.formatDateTime(current, "ddd d MMM");
         root.dateText = date.charAt(0).toUpperCase() + date.substring(1);
         root.timeText = Qt.formatDateTime(current, "HH:mm");
+        root.macText = Qt.formatDateTime(current, "ddd d MMM HH:mm");
     }
 
     function refreshTimezone() {
