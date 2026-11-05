@@ -13,6 +13,7 @@
 # Available themes:
 #   DARK:  nord · dracula · gruvbox · catppuccin · tokyonight · onedark
 #          solarized · rosepine · everforest · monochrome · moderno-morbido
+#          macos-tahoe
 #   LIGHT: catppuccin-latte · gruvbox-light · solarized-light · rosepine-dawn · tokyonight-day
 #
 # BORDER SIZE
@@ -441,6 +442,54 @@ style           = "soft"
 
 
 
+# ── macOS Tahoe ──────────────────────────────────────────────────────────────
+# macOS 26 style: dark system colors, a translucent menu bar, a dock with
+# magnification, blur behind shell surfaces and the system blue accent.
+[theme.macos-tahoe]
+normfgcolor     = "#F5F5F7"
+normbgcolor     = "#1C1C1E"
+normbordercolor = "#3A3A3C"
+selfgcolor      = "#F5F5F7"
+selbgcolor      = "#2C2C2E"
+selbordercolor  = "#0A84FF"
+
+term_bg         = "#1E1E1E"
+term_fg         = "#F5F5F7"
+term_cursor     = "#0A84FF"
+term_color0     = "#2C2C2E"
+term_color1     = "#FF453A"
+term_color2     = "#32D74B"
+term_color3     = "#FFD60A"
+term_color4     = "#0A84FF"
+term_color5     = "#BF5AF2"
+term_color6     = "#64D2FF"
+term_color7     = "#D1D1D6"
+term_color8     = "#636366"
+term_color9     = "#FF6961"
+term_color10    = "#4CE36B"
+term_color11    = "#FFE14D"
+term_color12    = "#409CFF"
+term_color13    = "#DA8FFF"
+term_color14    = "#8EDFFF"
+term_color15    = "#F5F5F7"
+
+shell_popup          = "#1E1E20"
+shell_bar            = "#1C1C1E"
+shell_window         = "#232325"
+shell_input          = "#2C2C2E"
+shell_chip           = "#3A3A3C"
+shell_hover          = "#2E2E31"
+shell_on_accent      = "#0B1220"
+shell_text_secondary = "#D1D1D6"
+shell_text_muted     = "#AEAEB2"
+shell_text_faint     = "#8E8E93"
+
+dark_mode       = true
+gtk_theme       = "adw-gtk3-dark"
+style           = "tahoe"
+
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # LIGHT THEMES
 # ══════════════════════════════════════════════════════════════════════════════
@@ -643,3 +692,39 @@ font_family            = "Outfit"
 font_weight            = 500
 font_weight_strong     = 650
 launcher_footer        = true
+
+[style.tahoe]
+corner_radius          = 12   # Picom window corners
+bar_radius             = 0
+popup_radius           = 16
+card_radius            = 10
+control_radius         = 8
+logo_radius            = 6
+pill_radius            = 999
+gap                    = 10
+borderpx               = 0
+bar_height             = 30
+bar_margin_top         = 0
+bar_margin_side        = 0
+bar_islands            = false
+popup_padding          = 16
+title_size             = 20
+accent_soft_alpha      = 18
+border_subtle_alpha    = 18
+shadow_radius          = 30
+shadow_opacity         = 40
+shadow_offset_y        = 12
+font_family            = "Noto Sans"
+font_weight            = 500
+font_weight_strong     = 700
+launcher_footer        = false
+bar_layout             = "macos"   # apple glyph, bold app name, clock on the right
+bar_opacity            = 35        # translucent menu bar over the blur
+dock                   = true
+dock_icon_size         = 48
+dock_magnify           = 150       # percent at the pointer
+dock_radius            = 22
+dock_opacity           = 45
+dock_apps              = "thunar,Alacritty,com.brave.Origin,org.gnome.FileRoller"
+blur                   = true      # Picom dual_kawase behind the bar, dock and popups
+gtk_css                = true      # accent and radius for GTK3 and GTK4

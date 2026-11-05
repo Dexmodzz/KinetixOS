@@ -164,7 +164,7 @@ configuration. GTK, Qt, cursor, terminal, and compositor integration failures
 remain independent records and do not suppress valid theme inventory. A
 snapshot returns status 3 after emitting its records when no valid theme can be
 resolved; partial snapshots and isolated integration failures return status 0.
-Inventory enforces the DWM parser's 512-entry ceiling and the exact section
+Inventory enforces the DWM parser's 1024-entry ceiling and the exact section
 header grammar shared by the current QML and toolkit consumers. A trailing
 comment on a section header is therefore a typed compatibility error until all
 live consumers support it consistently. Arrays and inline tables are rejected

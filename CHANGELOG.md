@@ -19,6 +19,21 @@ versions from `config.mk`.
 - `dwm-settings-theme merge-shipped`, run on install and update, adds newly
   shipped themes and style profiles to an existing user `themes.toml`.
 - The installer downloads the Outfit font (SIL OFL 1.1) for the soft style.
+- "macOS Tahoe" theme: dark system colors, a translucent macOS-style menu bar
+  (apple glyph, bold app name, dot workspaces, clock on the right), a bottom
+  dock with favorites, running dots and hover magnification, dual_kawase blur
+  behind shell surfaces, and the system blue accent in GTK3 and GTK4.
+- Style keys `bar_layout`, `bar_opacity`, `dock`, `dock_icon_size`,
+  `dock_magnify`, `dock_radius`, `dock_opacity`, `dock_apps`, `blur` and
+  `gtk_css`. Their defaults keep every existing theme unchanged.
+- dwm reserves a bottom dock window (its `_NET_WM_STRUT` bottom) separately
+  from the top panel.
+- `dwm-quickshell-launcher launch-id DESKTOP-ID`.
+
+### Changed
+
+- The runtime TOML parser limit is 1024 entries (was 512), so the shipped
+  themes file has room for more themes.
 
 ## [0.1.0] - 2026-10-20
 
