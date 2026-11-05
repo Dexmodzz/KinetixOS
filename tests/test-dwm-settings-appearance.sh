@@ -754,6 +754,33 @@ missing_style=$(snapshot)
 grep -Fqx $'style\tclassic\tfallback' <<<"$missing_style"
 grep -Fq $'error\tstyle:soft\tmissing\t' <<<"$missing_style"
 
+# Bar layout, dock and blur tokens are validated and reported like the others.
+cp "$work/managed-themes.toml" "$config_home/kinetixos/themes.toml"
+sed -i '0,/theme = "nord"/s//theme = "moderno-morbido"/' "$config_home/kinetixos/themes.toml"
+sed -i '/^launcher_footer[[:space:]]*=/a bar_layout = "macos"\nbar_opacity = 35\ndock = true\ndock_icon_size = 48\ndock_magnify = 150\ndock_radius = 22\ndock_opacity = 45\ndock_apps = "Alacritty,thunar"\nblur = true' \
+	"$config_home/kinetixos/themes.toml"
+dock_style=$(snapshot)
+grep -Fqx $'style\tsoft\tselected' <<<"$dock_style"
+grep -Fqx $'style-value\tbar_layout\tmacos' <<<"$dock_style"
+grep -Fqx $'style-value\tbar_opacity\t35' <<<"$dock_style"
+grep -Fqx $'style-value\tdock\ttrue' <<<"$dock_style"
+grep -Fqx $'style-value\tdock_magnify\t150' <<<"$dock_style"
+grep -Fqx $'style-value\tdock_apps\tAlacritty,thunar' <<<"$dock_style"
+grep -Fqx $'style-value\tblur\ttrue' <<<"$dock_style"
+
+sed -i 's/^bar_layout[[:space:]]*=.*/bar_layout = "foo"/' "$config_home/kinetixos/themes.toml"
+bad_layout=$(snapshot)
+grep -Fqx $'style\tclassic\tfallback' <<<"$bad_layout"
+grep -Fq $'error\tstyle:soft\tinvalid-value\tStyle key \'bar_layout\' must be one of default, macos' \
+	<<<"$bad_layout"
+
+sed -i 's/^bar_layout[[:space:]]*=.*/bar_layout = "macos"/; s/^dock_apps[[:space:]]*=.*/dock_apps = "a b"/' \
+	"$config_home/kinetixos/themes.toml"
+bad_apps=$(snapshot)
+grep -Fqx $'style\tclassic\tfallback' <<<"$bad_apps"
+grep -Fq $'error\tstyle:soft\tinvalid-value\tStyle key \'dock_apps\' must be a comma-separated list of desktop IDs' \
+	<<<"$bad_apps"
+
 cp "$work/managed-themes.toml" "$config_home/kinetixos/themes.toml"
 sed -i '0,/theme = "nord"/s//theme = "moderno-morbido"/' "$config_home/kinetixos/themes.toml"
 sed -i 's/^shell_popup[[:space:]]*=.*/shell_popup = "blue"/' "$config_home/kinetixos/themes.toml"
