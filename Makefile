@@ -410,6 +410,9 @@ check-release-helper:
 check-xvfb-runtime: all
 	tests/test-xvfb-runtime.sh
 
+check-dock-reserve: all
+	tests/test-dock-reserve-xvfb.sh
+
 check-build-config:
 	tests/test-configure-build.sh
 
@@ -728,6 +731,7 @@ check: check-picom check-picom-xvfb
 	$(MAKE) check-display-profile
 	$(MAKE) check-display-setup
 	$(MAKE) check-monitor-tags
+	$(MAKE) check-dock-reserve
 	$(MAKE) check-quickshell-launcher
 	$(MAKE) check-quickshell-controls
 	$(MAKE) check-quickshell-audio
@@ -782,5 +786,5 @@ check: check-picom check-picom-xvfb
 	check-display-profile check-display-setup check-fedora-iso-builder check-fedora-packages check-fedora-platform check-format check-install \
 	check-gearlever-install check-herdr-install check-install-nvidia check-install-graphical-login check-install-manifest check-install-preservation check-kickstart check-lock \
 	check-session-guards check-session-migration check-screenshot check-release-helper check-shell check-webapp-launch check-diagnostics check-status check-system-health check-system-management check-quickshell-system-management check-settings \
-	check-quickshell-launcher check-quickshell-controls check-quickshell-audio check-quickshell-controlcenter check-quickshell-power check-quickshell-power-backend check-quickshell-power-model check-quickshell-session-actions check-quickshell-defaults-model check-quickshell-appearance-model check-quickshell-design-system check-quickshell-large-surfaces check-quickshell-large-surfaces-xvfb check-quickshell-panel-menus check-quickshell-panel-settings check-quickshell-command-menu check-quickshell-notifications check-quickshell-tray check-quickshell-health-xvfb check-quickshell-settings-xvfb check-quickshell-settings-responsiveness-xvfb check-quickshell-network check-quickshell-connectivity check-quickshell-qml check-lightdm-config check-terminal check-xvfb-runtime install install-system install-user \
+	check-quickshell-launcher check-quickshell-controls check-quickshell-audio check-quickshell-controlcenter check-quickshell-power check-quickshell-power-backend check-quickshell-power-model check-quickshell-session-actions check-quickshell-defaults-model check-quickshell-appearance-model check-quickshell-design-system check-quickshell-large-surfaces check-quickshell-large-surfaces-xvfb check-quickshell-panel-menus check-quickshell-panel-settings check-quickshell-command-menu check-quickshell-notifications check-quickshell-tray check-quickshell-health-xvfb check-quickshell-settings-xvfb check-quickshell-settings-responsiveness-xvfb check-quickshell-network check-quickshell-connectivity check-quickshell-qml check-lightdm-config check-terminal check-xvfb-runtime check-dock-reserve install install-system install-user \
 	install-cursors native release release-check uninstall uninstall-files
