@@ -10,6 +10,7 @@ import qs.controlcenter
 import qs.controls
 import qs.core
 import qs.defaults
+import qs.dock
 import qs.health
 import qs.launcher
 import qs.network
@@ -1158,6 +1159,15 @@ ShellRoot {
             desktopUpdateModel: desktopUpdateModel
             primaryPanel: modelData === Quickshell.screens[0]
             onPopupRequested: (panel, popupId) => root.selectPanelPopup(panel, popupId)
+        }
+    }
+
+    // Only styles with dock = true create the dock window.
+    LazyLoader {
+        active: Theme.styleDock
+
+        Dock {
+            desktopState: dwmState
         }
     }
 
