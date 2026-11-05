@@ -2275,6 +2275,26 @@ sed -i '/^launcher_footer[[:space:]]*=/a blur = true' "$themes_file"
 run_picom_style_apply
 grep -Fqx 'apply-theme-style 14 18 30 45 10 1' "$picom_style_log"
 
+# A style with gtk_css = true owns a marked block in each gtk.css; other
+# themes remove it and leave the user's own CSS byte-identical.
+mkdir -p "$config_home/gtk-3.0"
+printf '/* mine */\n' >"$config_home/gtk-3.0/gtk.css"
+rm -f "$config_home/gtk-4.0/gtk.css" "$config_home/gtk-3.0/gtk.css.kinetixos-backup"
+sed -i '/^launcher_footer[[:space:]]*=/a gtk_css = true' "$themes_file"
+run_picom_style_apply
+grep -Fqx '/* mine */' "$config_home/gtk-3.0/gtk.css"
+grep -Fqx '/* kinetixos style css begin */' "$config_home/gtk-3.0/gtk.css"
+grep -Fqx '@define-color accent_bg_color #A6B4FF;' "$config_home/gtk-3.0/gtk.css"
+grep -Fqx '@define-color accent_bg_color #A6B4FF;' "$config_home/gtk-4.0/gtk.css"
+grep -Fq 'border-radius: 8px;' "$config_home/gtk-4.0/gtk.css"
+[[ $(<"$config_home/gtk-3.0/gtk.css.kinetixos-backup") == '/* mine */' ]]
+run_picom_style_apply
+[[ $(grep -c 'kinetixos style css begin' "$config_home/gtk-3.0/gtk.css") == 1 ]]
+sed -i '0,/^theme = "moderno-morbido"/s//theme = "nord"/' "$themes_file"
+run_picom_style_apply
+[[ $(<"$config_home/gtk-3.0/gtk.css") == '/* mine */' ]]
+[[ ! -e $config_home/gtk-4.0/gtk.css ]]
+
 # merge-shipped adds only the shipped sections an existing user file lacks.
 {
 	printf '# my themes\n[active]\ntheme = "mine"\n\n[appearance]\nborderpx = 3\n\n'

@@ -269,6 +269,7 @@ readonly -a style_schema=(
 	'dock_opacity|int|0|100'
 	'dock_apps|list|0|0'
 	'blur|bool|0|0'
+	'gtk_css|bool|0|0'
 )
 
 style_schema_entry() {
