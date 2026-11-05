@@ -48,6 +48,13 @@ STYLE_KEYS = (
     "shadow-offset-y",
 )
 STYLE_LEGACY_KEYS = ("rounded-corners-exclude", "shadow-exclude")
+# Owned as well when the style asks for blur behind shell surfaces.
+STYLE_BLUR_KEYS = (
+    "blur-method",
+    "blur-strength",
+    "blur-background",
+    "blur-background-exclude",
+)
 # The shell draws its own bar islands and panel popups. Quickshell windows set
 # no WM_CLASS, so they are matched as the bar (a dock) and as override-redirect
 # popups without a class; application menus keep theirs. Shell windows dwm
@@ -532,6 +539,8 @@ class Configuration:
             )
         if style is not None:
             owned = STYLE_KEYS if uses_rules else STYLE_KEYS + STYLE_LEGACY_KEYS
+            if style.get("blur"):
+                owned += STYLE_BLUR_KEYS
             block = own
             for key in owned:
                 if key not in self.entries:
@@ -582,9 +591,10 @@ def managed_block(text, begin=BEGIN, end_marker=END, label="opacity"):
 def style_rules_text(style, trailing_comma):
     """Rules entries for configurations that use Picom's rules list."""
     comma = "," if trailing_comma else ""
+    blur = " blur-background = true;" if style.get("blur") else ""
     return (
         f"\n{STYLE_RULES_BEGIN}\n"
-        f"{{ match = {json.dumps(SHELL_MATCH)}; shadow = false; corner-radius = 0; }},\n"
+        f"{{ match = {json.dumps(SHELL_MATCH)}; shadow = false; corner-radius = 0;{blur} }},\n"
         f"{{ match = {json.dumps(MANAGED_SHELL_MATCH)}; shadow = true; "
         f"corner-radius = {style['popup_radius']}; }}{comma}\n{STYLE_RULES_END}\n"
     )
@@ -608,6 +618,16 @@ def style_global_text(style, legacy_excludes):
             f"rounded-corners-exclude = [ {json.dumps(SHELL_MATCH)} ];",
             f"shadow-exclude = [ {json.dumps(SHELL_MATCH)} ];",
         ]
+    if style.get("blur"):
+        # Blur only behind the translucent shell surfaces (bar, dock, popups).
+        lines += ['blur-method = "dual_kawase";', "blur-strength = 5;"]
+        if legacy_excludes:
+            lines += [
+                "blur-background = true;",
+                f"blur-background-exclude = [ {json.dumps('!(' + SHELL_MATCH + ')')} ];",
+            ]
+        else:
+            lines.append("blur-background = false;")
     lines.append(STYLE_END)
     return "\n".join(lines) + "\n"
 
@@ -1363,6 +1383,7 @@ STYLE_ARGS = (
     ("shadow_radius", 0, 128),
     ("shadow_opacity", 0, 100),
     ("shadow_offset_y", 0, 64),
+    ("blur", 0, 1),  # optional: absent means no blur
 )
 
 
@@ -1429,7 +1450,7 @@ def main():
         nargs="*",
         type=int,
         help="corner-radius popup-radius shadow-radius shadow-opacity "
-        "shadow-offset-y; no values removes the theme style",
+        "shadow-offset-y [blur]; no values removes the theme style",
     )
     args = parser.parse_args()
     if args.action == "status":
@@ -1442,8 +1463,10 @@ def main():
         except BrokenPipeError:
             pass
     elif args.action == "apply-theme-style":
-        if args.values and len(args.values) != len(STYLE_ARGS):
-            parser.error(f"apply-theme-style takes {len(STYLE_ARGS)} values or none")
+        if args.values and len(args.values) not in (len(STYLE_ARGS) - 1, len(STYLE_ARGS)):
+            parser.error(
+                f"apply-theme-style takes {len(STYLE_ARGS) - 1} or {len(STYLE_ARGS)} values, or none"
+            )
         detail = apply_theme_style(args.values)
         print(json.dumps({**status(), "message": detail}))
     elif args.action in ("set-opacity", "set-backend", "copy-config"):

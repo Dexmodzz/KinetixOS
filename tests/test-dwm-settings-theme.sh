@@ -2268,6 +2268,12 @@ sed -i '0,/^theme = "nord"/s//theme = "moderno-morbido"/' "$themes_file"
 sed -i '/^shadow_radius[[:space:]]*=/d' "$themes_file"
 run_picom_style_apply
 grep -Fqx 'apply-theme-style' "$picom_style_log"
+# A style with blur = true adds the optional sixth value.
+cp "$managed_file" "$themes_file"
+sed -i '0,/^theme = "nord"/s//theme = "moderno-morbido"/' "$themes_file"
+sed -i '/^launcher_footer[[:space:]]*=/a blur = true' "$themes_file"
+run_picom_style_apply
+grep -Fqx 'apply-theme-style 14 18 30 45 10 1' "$picom_style_log"
 
 # merge-shipped adds only the shipped sections an existing user file lacks.
 {

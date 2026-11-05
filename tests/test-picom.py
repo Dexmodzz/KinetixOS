@@ -117,6 +117,42 @@ class PicomTests(unittest.TestCase):
         self.assertIn("corner-radius = 10;", text)
         self.assertNotIn("corner-radius = 14;", text)
 
+    def test_theme_style_blur_only_behind_shell_surfaces(self):
+        picom.apply_theme_style(self.SOFT + [1])
+        text = self.path.read_text()
+        self.assertIn('blur-method = "dual_kawase";', text)
+        self.assertIn("blur-strength = 5;", text)
+        self.assertIn("blur-background = false;", text)
+        shell_rule = (
+            f"{{ match = \"{picom.SHELL_MATCH}\"; shadow = false; "
+            "corner-radius = 0; blur-background = true; },"
+        )
+        self.assertIn(shell_rule, text)
+        # Without blur, or with blur = 0, the block is the plain style block.
+        picom.apply_theme_style(self.SOFT)
+        plain = self.path.read_text()
+        self.assertNotIn("blur", plain)
+        picom.apply_theme_style(self.SOFT + [0])
+        self.assertEqual(self.path.read_text(), plain)
+
+    def test_theme_style_blur_in_legacy_configuration(self):
+        self.write('backend = "glx";\n')
+        picom.apply_theme_style(self.SOFT + [1])
+        text = self.path.read_text()
+        self.assertNotIn("rules", text)
+        self.assertIn("blur-background = true;", text)
+        self.assertIn(
+            f"blur-background-exclude = [ \"!({picom.SHELL_MATCH})\" ];", text
+        )
+
+    def test_custom_blur_takes_precedence_only_when_blur_is_requested(self):
+        self.write('blur-method = "gaussian";\n')
+        picom.apply_theme_style(self.SOFT)
+        self.assertIn("corner-radius = 14;", self.path.read_text())
+        picom.apply_theme_style([])
+        with self.assertRaisesRegex(picom.Error, "takes precedence"):
+            picom.apply_theme_style(self.SOFT + [1])
+
     def test_custom_settings_take_precedence_over_theme_style(self):
         self.write("shadow = false;\n")
         with self.assertRaisesRegex(picom.Error, "takes precedence"):

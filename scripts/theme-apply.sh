@@ -1339,6 +1339,9 @@ picom_style_args() {
 		[[ $raw =~ ^[0-9]{1,3}$ ]] || return 0
 		printf '%s\n' "$raw"
 	done
+	# Optional sixth value: blur behind shell surfaces.
+	[[ $(toml_get "style.$style" blur "$THEMES_FILE") == true ]] && printf '1\n'
+	return 0
 }
 if [[ $TRANSACTIONAL_APPLY == 0 && -n ${DISPLAY:-} ]] && command -v picom &>/dev/null; then
 	PICOM_HELPER=${DWM_APPEARANCE_PICOM_HELPER:-$script_dir/dwm-settings-picom}
@@ -1346,7 +1349,7 @@ if [[ $TRANSACTIONAL_APPLY == 0 && -n ${DISPLAY:-} ]] && command -v picom &>/dev
 		picom_reload=1
 		if [[ $RUNTIME_ONLY == 0 ]]; then
 			mapfile -t PICOM_STYLE_ARGS < <(picom_style_args)
-			((${#PICOM_STYLE_ARGS[@]} == 5)) || PICOM_STYLE_ARGS=()
+			((${#PICOM_STYLE_ARGS[@]} == 5 || ${#PICOM_STYLE_ARGS[@]} == 6)) || PICOM_STYLE_ARGS=()
 			if picom_style_output=$("$PICOM_HELPER" apply-theme-style "${PICOM_STYLE_ARGS[@]}" 2>&1); then
 				# A published change already restarted a running compositor.
 				[[ $picom_style_output != *'. Backup: '* ]] || picom_reload=0
