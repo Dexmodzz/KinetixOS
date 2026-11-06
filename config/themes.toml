@@ -29,7 +29,7 @@
 # ══════════════════════════════════════════════════════════════════════════════
 
 [active]
-theme = "nord"   # ← change only this line to switch themes
+theme = "macos-tahoe"   # ← change only this line to switch themes
 
 [appearance]
 borderpx = 1   # border size in pixels (0 = none, 1-3 = recommended)
@@ -451,16 +451,16 @@ normbgcolor     = "#1C1C1E"
 normbordercolor = "#3A3A3C"
 selfgcolor      = "#F5F5F7"
 selbgcolor      = "#2C2C2E"
-selbordercolor  = "#0A84FF"
+selbordercolor  = "#A6B4FF"
 
 term_bg         = "#1E1E1E"
 term_fg         = "#F5F5F7"
-term_cursor     = "#0A84FF"
+term_cursor     = "#A6B4FF"
 term_color0     = "#2C2C2E"
 term_color1     = "#FF453A"
 term_color2     = "#32D74B"
 term_color3     = "#FFD60A"
-term_color4     = "#0A84FF"
+term_color4     = "#A6B4FF"
 term_color5     = "#BF5AF2"
 term_color6     = "#64D2FF"
 term_color7     = "#D1D1D6"
@@ -468,7 +468,7 @@ term_color8     = "#636366"
 term_color9     = "#FF6961"
 term_color10    = "#4CE36B"
 term_color11    = "#FFE14D"
-term_color12    = "#409CFF"
+term_color12    = "#C3CDFF"
 term_color13    = "#DA8FFF"
 term_color14    = "#8EDFFF"
 term_color15    = "#F5F5F7"
@@ -479,7 +479,7 @@ shell_window         = "#232325"
 shell_input          = "#2C2C2E"
 shell_chip           = "#3A3A3C"
 shell_hover          = "#2E2E31"
-shell_on_accent      = "#0B1220"
+shell_on_accent      = "#15172E"
 shell_text_secondary = "#D1D1D6"
 shell_text_muted     = "#AEAEB2"
 shell_text_faint     = "#8E8E93"

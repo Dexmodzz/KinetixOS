@@ -41,8 +41,8 @@ PanelWindow {
     required property bool primaryPanel
 
     readonly property bool islands: Theme.styleBarIslands
-    // macOS menu bar: translucent full-width strip, apple glyph, bold app
-    // name, dot workspaces and the clock on the right. Only hides widgets.
+    // macOS menu bar: translucent full-width strip, KinetixOS logo, bold app
+    // name, numbered workspaces and the clock before the power button.
     readonly property bool macLayout: Theme.styleBarLayout === "macos"
 
     function appName(windowClass) {
@@ -124,7 +124,7 @@ PanelWindow {
 
                     LogoButton {
                         id: logoButton
-                        apple: root.macLayout
+                        apple: false
                         onActivated: {
                             root.popupRequested(root, "controlcenter");
                             root.controlCenterModel.toggle();
@@ -149,7 +149,10 @@ PanelWindow {
                                     required property int modelData
 
                                     soft: root.islands
-                                    dot: root.macLayout
+                                    dot: false
+                                    whiteText: root.macLayout
+                                    boldSelected: !root.macLayout
+                                    fillSelected: !root.macLayout
                                     label: root.state.workspaceNames[modelData]
                                     selected: modelData === root.state.currentWorkspaceForScreen(root.screen)
                                     occupied: root.state.workspaceOccupied(modelData)
@@ -439,6 +442,17 @@ PanelWindow {
                         }
                     }
 
+                    // macOS layout: the clock sits just before the power button.
+                    UiText {
+                        visible: root.macLayout
+                        Layout.leftMargin: Theme.spacingMd
+                        Layout.rightMargin: Theme.spacingMd
+                        text: root.clock.macText
+                        color: Theme.textStrong
+                        font.weight: Theme.styleFontWeight
+                        font.pixelSize: Theme.panelFontSize
+                    }
+
                     PanelPill {
                         visible: root.panelSettingsModel.widgetEnabled("power")
                         Layout.preferredWidth: Theme.pillHeight
@@ -469,15 +483,6 @@ PanelWindow {
                         }
                     }
 
-                    UiText {
-                        visible: root.macLayout
-                        Layout.leftMargin: Theme.spacingMd
-                        Layout.rightMargin: Theme.spacingLg
-                        text: root.clock.macText
-                        color: Theme.textStrong
-                        font.weight: Theme.styleFontWeight
-                        font.pixelSize: Theme.panelFontSize
-                    }
                 }
             }
         }

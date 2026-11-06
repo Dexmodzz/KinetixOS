@@ -12,7 +12,7 @@ to update dwm, Quickshell, terminal, GTK, and Qt styling. No restart needed.
 
 ```toml
 [active]
-theme = "nord"   # ← change this line to switch themes
+theme = "macos-tahoe"   # ← change this line to switch themes
 ```
 
 The managed transaction helper is the safe command-line interface for theme
@@ -47,7 +47,7 @@ Recovery refuses to overwrite an externally changed theme file.
 
 | Theme | Description |
 |-------|-------------|
-| `nord` | Arctic, cool blue palette (default) |
+| `nord` | Arctic, cool blue palette |
 | `dracula` | Purple-tinted dark theme |
 | `gruvbox` | Warm retro earth tones |
 | `catppuccin` | Mocha variant — soft pastels |
@@ -58,6 +58,7 @@ Recovery refuses to overwrite an externally changed theme file.
 | `everforest` | Muted green forest palette |
 | `monochrome` | Black and white minimal |
 | `moderno-morbido` | Night blue with a periwinkle accent and the soft style: rounded corners, bar islands, and wider gaps |
+| `macos-tahoe` | Dark macOS-style look (default): translucent menu bar, dock with magnification, blur behind the bar and dock |
 
 ### Light
 
