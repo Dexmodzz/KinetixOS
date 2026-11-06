@@ -1,6 +1,7 @@
 #!/bin/sh
-# A bottom dock window must reserve its own space without replacing the top
-# panel as the monitor's bar, whatever order the two appear in.
+# A dock window must reserve its own space without replacing the top panel
+# as the monitor's bar, whatever order the two appear in and whichever edge
+# (bottom, left, right or under the panel at the top) the dock sits on.
 
 set -eu
 
@@ -84,6 +85,21 @@ main(int argc, char **argv)
 		strut[3] = 72;        /* bottom */
 		strut[10] = 212;      /* bottom_start_x */
 		strut[11] = 811;      /* bottom_end_x */
+	} else if (strcmp(argv[1], "dockleft") == 0) {
+		x = 0; y = 32; w = 96; h = 736; isdock = 1;
+		strut[0] = 72;        /* left */
+		strut[4] = 32;        /* left_start_y */
+		strut[5] = 767;       /* left_end_y */
+	} else if (strcmp(argv[1], "dockright") == 0) {
+		x = 1024 - 96; y = 32; w = 96; h = 736; isdock = 1;
+		strut[1] = 72;        /* right */
+		strut[6] = 32;        /* right_start_y */
+		strut[7] = 767;       /* right_end_y */
+	} else if (strcmp(argv[1], "docktop") == 0) {
+		x = 212; y = 32; w = 600; h = 96; isdock = 1;
+		strut[2] = 72;        /* top, below the panel */
+		strut[8] = 212;       /* top_start_x */
+		strut[9] = 811;       /* top_end_x */
 	} else if (strcmp(argv[1], "normal") != 0) {
 		return 2;
 	}
@@ -94,7 +110,7 @@ main(int argc, char **argv)
 		dock = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE_DOCK", False);
 		XChangeProperty(dpy, win, type, XA_ATOM, 32, PropModeReplace,
 		                (unsigned char *)&dock, 1);
-		if (strut[3])
+		if (strut[0] || strut[1] || strut[2] || strut[3])
 			XChangeProperty(dpy, win, XInternAtom(dpy, "_NET_WM_STRUT_PARTIAL", False),
 			                XA_CARDINAL, 32, PropModeReplace, (unsigned char *)strut, 12);
 	}
@@ -196,6 +212,28 @@ wait_bottom_above() {
 	done
 }
 
+# wait_box WIN MIN_X MIN_Y MAX_RIGHT MAX_BOTTOM: the only tiled window fills
+# the box, give or take the gaps
+wait_box() {
+	i=0
+	while :; do
+		geo=$(DISPLAY=$display xdotool getwindowgeometry --shell "$1" 2>/dev/null || true)
+		gx=$(printf '%s\n' "$geo" | sed -n 's/^X=//p')
+		gy=$(printf '%s\n' "$geo" | sed -n 's/^Y=//p')
+		gw=$(printf '%s\n' "$geo" | sed -n 's/^WIDTH=//p')
+		gh=$(printf '%s\n' "$geo" | sed -n 's/^HEIGHT=//p')
+		if [ -n "$gx" ] && [ -n "$gy" ] && [ -n "$gw" ] && [ -n "$gh" ] &&
+			[ "$gx" -ge "$2" ] && [ "$gy" -ge "$3" ] &&
+			[ $((gx + gw)) -le "$4" ] && [ $((gy + gh)) -le "$5" ] &&
+			[ "$gw" -ge $(($4 - $2 - 64)) ] && [ "$gh" -ge $(($5 - $3 - 64)) ]; then
+			return 0
+		fi
+		i=$((i + 1))
+		[ "$i" -lt 100 ] || fail "window $1 at x=$gx y=$gy w=$gw h=$gh, want inside $2,$3-$4,$5"
+		sleep 0.05
+	done
+}
+
 # Order 1: panel, normal window, then dock.
 start_dwm
 spawn panel
@@ -227,12 +265,44 @@ stop_dwm
 # Order 2: dock first, then panel, then a normal window.
 start_dwm
 spawn dock
+dock_pid=$spawned_pid
 spawn panel
 panel=$spawned_id
+panel_pid=$spawned_pid
 spawn normal
 normal=$spawned_id
+normal_pid=$spawned_pid
 wait_geometry "$normal" 32 696
 DISPLAY=$display xprop -root _NET_CLIENT_LIST | grep -q "$panel" ||
 	fail "panel missing from _NET_CLIENT_LIST when the dock came first"
+kill "$dock_pid" "$panel_pid" "$normal_pid"
+wait "$dock_pid" "$panel_pid" "$normal_pid" 2>/dev/null || true
+stop_dwm
+
+# Side and top docks: the panel stays the bar, the dock keeps its edge.
+for mode in dockleft dockright docktop; do
+	start_dwm
+	spawn panel
+	panel=$spawned_id
+	panel_pid=$spawned_pid
+	spawn "$mode"
+	side_pid=$spawned_pid
+	spawn normal
+	normal=$spawned_id
+	normal_pid=$spawned_pid
+	case $mode in
+	dockleft) wait_box "$normal" 72 32 1024 768 ;;
+	dockright) wait_box "$normal" 0 32 952 768 ;;
+	docktop) wait_box "$normal" 0 104 1024 768 ;;
+	esac
+	DISPLAY=$display xprop -root _NET_CLIENT_LIST | grep -q "$panel" ||
+		fail "panel missing from _NET_CLIENT_LIST with $mode"
+	kill "$side_pid"
+	wait "$side_pid" 2>/dev/null || true
+	wait_box "$normal" 0 32 1024 768
+	kill "$normal_pid" "$panel_pid"
+	wait "$normal_pid" "$panel_pid" 2>/dev/null || true
+	stop_dwm
+done
 
 printf '%s\n' "test-dock-reserve-xvfb: PASS"
