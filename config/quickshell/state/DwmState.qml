@@ -11,6 +11,8 @@ Scope {
     property var occupiedWorkspaces: []
     property var fullscreenMonitorIndexes: []
     property var runningApps: []
+    // App class -> desktops (zero-based) it has windows on.
+    property var appDesktops: ({})
     property string activeWindowTitle: "Desktop"
     property string activeWindowClass: "application-x-executable"
     property string statusText: ""
@@ -72,6 +74,14 @@ Scope {
                     const separator = app.indexOf(":");
                     return { "windowId": app.slice(0, separator), "appClass": app.slice(separator + 1) };
                 }) : [];
+            } else if (key === "app_desktops") {
+                const map = {};
+                for (const entry of value.length > 0 ? value.split("|") : []) {
+                    const separator = entry.lastIndexOf(":");
+                    map[entry.slice(0, separator)] = entry.slice(separator + 1).split(",")
+                        .map(desktop => parseInt(desktop, 10));
+                }
+                root.appDesktops = map;
             } else if (key === "title") {
                 root.activeWindowTitle = value.length > 0 ? value : "Desktop";
             } else if (key === "class") {
@@ -244,6 +254,12 @@ Scope {
         focusWindowProcess.running = true;
     }
 
+    // Asks every window of that window's app to close, as dwm's close key does.
+    function closeApp(windowId) {
+        closeAppProcess.command = ["dwm-quickshell-state", "close", windowId];
+        closeAppProcess.running = true;
+    }
+
     Process {
         command: ["dwm-quickshell-state", "watch"]
         running: true
@@ -260,6 +276,12 @@ Scope {
         id: switchWorkspaceProcess
 
         command: ["dwm-quickshell-state", "switch", root.currentWorkspace.toString()]
+        running: false
+    }
+
+    Process {
+        id: closeAppProcess
+
         running: false
     }
 

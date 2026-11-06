@@ -276,11 +276,11 @@ sed -i 's/^\[theme.dracula\]$/  [theme.dracula] # retained theme comment/' \
 	"$work/config/kinetixos/themes.toml"
 
 info=$(run_helper info)
-printf '%s\n' "$info" | grep -Fqx 'Theme	nord'
+printf '%s\n' "$info" | grep -Fqx 'Theme	macos-tahoe'
 printf '%s\n' "$info" | grep -Fqx 'Audio	PipeWire'
 
 themes=$(run_helper themes)
-printf '%s\n' "$themes" | grep -Fqx 'active	nord'
+printf '%s\n' "$themes" | grep -Fqx 'active	macos-tahoe'
 printf '%s\n' "$themes" | grep -Fqx 'available	dracula'
 
 run_helper theme-set dracula >"$work/theme-set.out"
@@ -299,7 +299,7 @@ cp "$repo/scripts/dwm-quickshell-controlcenter" "$repo/scripts/dwm-session-launc
 rm "$work/config/kinetixos/themes.toml"
 installed_themes=$(HOME="$work/home" XDG_CONFIG_HOME="$work/config" \
 	XDG_DATA_HOME="$work/data" "$work/prefix/bin/dwm-quickshell-controlcenter" themes)
-printf '%s\n' "$installed_themes" | grep -Fqx 'active	nord'
+printf '%s\n' "$installed_themes" | grep -Fqx 'active	macos-tahoe'
 printf '%s\n' "$installed_themes" | grep -Fqx 'available	dracula'
 cp "$work/data/kinetixos/config/themes.toml" "$work/config/kinetixos/themes.toml"
 printf '%s\n' 'export QT_QPA_PLATFORMTHEME=qt6ct' \

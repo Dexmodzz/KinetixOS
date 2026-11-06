@@ -3,6 +3,7 @@
 
 import importlib.machinery
 import importlib.util
+import json
 import os
 import sys
 import tempfile
@@ -126,7 +127,15 @@ class PicomTests(unittest.TestCase):
         # Only panel windows (bar and dock) are blurred. Menus are
         # full-screen transparent click-away popups: blurring behind them
         # would blur the whole screen.
-        self.assertEqual(picom.BLUR_MATCH, "window_type = 'dock'")
+        # Picom sees those popups as docks too (transient for the bar), so
+        # the match also requires a managed window, and a catch-all rule
+        # turns blur off first because a rules list ignores the global flag.
+        self.assertEqual(picom.BLUR_MATCH, "window_type = 'dock' && !override_redirect")
+        self.assertIn("{ blur-background = false; },", text)
+        self.assertLess(
+            text.index("{ blur-background = false; },"),
+            text.index(f"match = {json.dumps(picom.BLUR_MATCH)}"),
+        )
         self.assertIn(
             f"{{ match = \"{picom.BLUR_MATCH}\"; blur-background = true; }},", text
         )

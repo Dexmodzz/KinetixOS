@@ -64,8 +64,11 @@ STYLE_BLUR_KEYS = (
 SHELL_MATCH = "window_type = 'dock' || (override_redirect && !class_g)"
 # Blur goes only behind panel windows (the bar and the dock). Shell menus are
 # full-screen transparent click-away popups, so blurring behind them would
-# blur the whole screen.
-BLUR_MATCH = "window_type = 'dock'"
+# blur the whole screen. Picom reports those popups as docks too (they are
+# transient for the bar), but they are override-redirect and the panels are
+# not. With a rules list Picom ignores the global blur-background option, so
+# the rules first turn blur off for every window, then back on for panels.
+BLUR_MATCH = "window_type = 'dock' && !override_redirect"
 MANAGED_SHELL_MATCH = (
     "window_type = 'normal' && !override_redirect && !class_g && name ^= 'dwm '"
 )
@@ -596,6 +599,7 @@ def style_rules_text(style, trailing_comma):
     """Rules entries for configurations that use Picom's rules list."""
     comma = "," if trailing_comma else ""
     blur = (
+        "{ blur-background = false; },\n"
         f"{{ match = {json.dumps(BLUR_MATCH)}; blur-background = true; }},\n"
         if style.get("blur")
         else ""
