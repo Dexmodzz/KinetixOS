@@ -26,8 +26,12 @@ PanelWindow {
     readonly property int magnifyRoom: Math.ceil(iconSize * (maxScale - 1))
     readonly property int pillHeight: iconSize + dotRoom + padding * 2
     readonly property int reservedHeight: pillHeight + bottomMargin
+    readonly property int maskRadius: Math.min(Theme.scaledSize(Theme.styleDockRadius), Math.floor(pillHeight / 2))
+    // applications.values changes when the desktop entries finish loading
+    // (and on every rescan); the model object itself never changes, so
+    // depending on it alone would freeze an empty dock at startup.
     readonly property var items: root.buildItems(Theme.styleDockApps, root.desktopState.runningApps,
-        DesktopEntries.applications)
+        DesktopEntries.applications.values)
     // Rest-size geometry: magnification reads the pointer against these
     // fixed centres, so growing icons never feed back into their own scale.
     readonly property var restCenters: root.computeCenters(root.items)
@@ -118,7 +122,51 @@ PanelWindow {
     exclusiveZone: root.reservedHeight
     aboveWindows: root.desktopState.fullscreenMonitorIndexes.indexOf(
         root.desktopState.screenIndex(root.screen)) === -1
-    mask: Region { item: pill }
+    // On X11 the mask is the window's bounding shape: it clips input, drawing
+    // and the Picom blur behind the dock. At rest it is the rounded pill;
+    // while hovered it also opens the band above it for magnified icons.
+    mask: Region {
+        x: pill.x + root.maskRadius
+        y: pill.y
+        width: pill.width - root.maskRadius * 2
+        height: pill.height
+
+        Region {
+            x: pill.x
+            y: pill.y + root.maskRadius
+            width: pill.width
+            height: pill.height - root.maskRadius * 2
+        }
+        Region {
+            shape: RegionShape.Ellipse
+            x: pill.x
+            y: pill.y
+            width: root.maskRadius * 2
+            height: root.maskRadius * 2
+        }
+        Region {
+            shape: RegionShape.Ellipse
+            x: pill.x + pill.width - root.maskRadius * 2
+            y: pill.y
+            width: root.maskRadius * 2
+            height: root.maskRadius * 2
+        }
+        Region {
+            shape: RegionShape.Ellipse
+            x: pill.x
+            y: pill.y + pill.height - root.maskRadius * 2
+            width: root.maskRadius * 2
+            height: root.maskRadius * 2
+        }
+        Region {
+            shape: RegionShape.Ellipse
+            x: pill.x + pill.width - root.maskRadius * 2
+            y: pill.y + pill.height - root.maskRadius * 2
+            width: root.maskRadius * 2
+            height: root.maskRadius * 2
+        }
+        Region { item: magnifyBand }
+    }
 
     anchors {
         bottom: true
@@ -145,6 +193,15 @@ PanelWindow {
             color: Theme.withAlpha(Theme.bg, Theme.styleDockOpacity)
             border.color: Theme.withAlpha(Theme.textStrong, 15)
             border.width: 1
+        }
+
+        Item {
+            id: magnifyBand
+
+            x: row.x
+            y: pill.y - root.magnifyRoom
+            width: row.width
+            height: hover.hovered && root.magnifyRoom > 0 ? root.magnifyRoom + root.maskRadius : 0
         }
 
         Row {

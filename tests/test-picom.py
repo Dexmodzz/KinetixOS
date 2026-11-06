@@ -123,11 +123,17 @@ class PicomTests(unittest.TestCase):
         self.assertIn('blur-method = "dual_kawase";', text)
         self.assertIn("blur-strength = 5;", text)
         self.assertIn("blur-background = false;", text)
-        shell_rule = (
-            f"{{ match = \"{picom.SHELL_MATCH}\"; shadow = false; "
-            "corner-radius = 0; blur-background = true; },"
+        # Only panel windows (bar and dock) are blurred. Menus are
+        # full-screen transparent click-away popups: blurring behind them
+        # would blur the whole screen.
+        self.assertEqual(picom.BLUR_MATCH, "window_type = 'dock'")
+        self.assertIn(
+            f"{{ match = \"{picom.BLUR_MATCH}\"; blur-background = true; }},", text
         )
-        self.assertIn(shell_rule, text)
+        self.assertIn(
+            f"{{ match = \"{picom.SHELL_MATCH}\"; shadow = false; corner-radius = 0; }},",
+            text,
+        )
         # Without blur, or with blur = 0, the block is the plain style block.
         picom.apply_theme_style(self.SOFT)
         plain = self.path.read_text()
@@ -142,7 +148,7 @@ class PicomTests(unittest.TestCase):
         self.assertNotIn("rules", text)
         self.assertIn("blur-background = true;", text)
         self.assertIn(
-            f"blur-background-exclude = [ \"!({picom.SHELL_MATCH})\" ];", text
+            f"blur-background-exclude = [ \"!({picom.BLUR_MATCH})\" ];", text
         )
 
     def test_custom_blur_takes_precedence_only_when_blur_is_requested(self):

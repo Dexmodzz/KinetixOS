@@ -62,6 +62,10 @@ STYLE_BLUR_KEYS = (
 # window-rules.toml and carry a dwm border: Picom rounds them, border included,
 # and gives them a shadow that follows those corners.
 SHELL_MATCH = "window_type = 'dock' || (override_redirect && !class_g)"
+# Blur goes only behind panel windows (the bar and the dock). Shell menus are
+# full-screen transparent click-away popups, so blurring behind them would
+# blur the whole screen.
+BLUR_MATCH = "window_type = 'dock'"
 MANAGED_SHELL_MATCH = (
     "window_type = 'normal' && !override_redirect && !class_g && name ^= 'dwm '"
 )
@@ -591,10 +595,15 @@ def managed_block(text, begin=BEGIN, end_marker=END, label="opacity"):
 def style_rules_text(style, trailing_comma):
     """Rules entries for configurations that use Picom's rules list."""
     comma = "," if trailing_comma else ""
-    blur = " blur-background = true;" if style.get("blur") else ""
+    blur = (
+        f"{{ match = {json.dumps(BLUR_MATCH)}; blur-background = true; }},\n"
+        if style.get("blur")
+        else ""
+    )
     return (
         f"\n{STYLE_RULES_BEGIN}\n"
-        f"{{ match = {json.dumps(SHELL_MATCH)}; shadow = false; corner-radius = 0;{blur} }},\n"
+        f"{{ match = {json.dumps(SHELL_MATCH)}; shadow = false; corner-radius = 0; }},\n"
+        f"{blur}"
         f"{{ match = {json.dumps(MANAGED_SHELL_MATCH)}; shadow = true; "
         f"corner-radius = {style['popup_radius']}; }}{comma}\n{STYLE_RULES_END}\n"
     )
@@ -619,12 +628,12 @@ def style_global_text(style, legacy_excludes):
             f"shadow-exclude = [ {json.dumps(SHELL_MATCH)} ];",
         ]
     if style.get("blur"):
-        # Blur only behind the translucent shell surfaces (bar, dock, popups).
+        # Blur only behind the translucent panel windows (bar and dock).
         lines += ['blur-method = "dual_kawase";', "blur-strength = 5;"]
         if legacy_excludes:
             lines += [
                 "blur-background = true;",
-                f"blur-background-exclude = [ {json.dumps('!(' + SHELL_MATCH + ')')} ];",
+                f"blur-background-exclude = [ {json.dumps('!(' + BLUR_MATCH + ')')} ];",
             ]
         else:
             lines.append("blur-background = false;")
