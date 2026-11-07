@@ -6,19 +6,10 @@ versions from `config.mk`.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-07
+
 ### Added
 
-- "Moderno morbido" theme: night blue with a periwinkle accent, three rounded
-  bar islands, a restyled Application Index launcher, 12 px window gaps,
-  2 px borders, and Picom rounded corners and shadows.
-- Optional theme style profiles (`style = "NAME"` with a `[style.NAME]`
-  section in `themes.toml`) for shell radii, bar layout, fonts, dwm gaps and
-  borders, and Picom corners and shadows. Themes without one are unchanged.
-- Optional `shell_*` theme colors that separate shell surfaces and text roles
-  from the terminal palette.
-- `dwm-settings-theme merge-shipped`, run on install and update, adds newly
-  shipped themes and style profiles to an existing user `themes.toml`.
-- The installer downloads the Outfit font (SIL OFL 1.1) for the soft style.
 - "macOS Tahoe" theme: dark system colors, a translucent macOS-style menu bar
   (KinetixOS logo, bold app name, numbered workspaces, clock before the power
   button), a dock with favorites, running dots and smooth hover magnification
@@ -45,7 +36,6 @@ versions from `config.mk`.
 
 - macOS Tahoe is the default theme for new installs (`[active] theme` in
   the shipped `themes.toml`). Existing user `themes.toml` files are unchanged.
-
 - The runtime TOML parser limit is 1024 entries (was 512), so the shipped
   themes file has room for more themes.
 
@@ -57,6 +47,24 @@ versions from `config.mk`.
 - The dock and the panel see running apps and occupied workspaces again:
   `dwm-quickshell-state` now reads `_NET_CLIENT_LIST`, which xprop prints
   with a colon instead of an equals sign.
+
+## [0.2.0] - 2026-11-07
+
+### Added
+
+- "Moderno morbido" theme: night blue with a periwinkle accent, three rounded
+  bar islands, a restyled Application Index launcher, 12 px window gaps,
+  2 px borders, and Picom rounded corners and shadows.
+- Optional theme style profiles (`style = "NAME"` with a `[style.NAME]`
+  section in `themes.toml`) for shell radii, bar layout, fonts, dwm gaps and
+  borders, and Picom corners and shadows. Themes without one are unchanged.
+- Optional `shell_*` theme colors that separate shell surfaces and text roles
+  from the terminal palette.
+- `dwm-settings-theme merge-shipped`, run on install and update, adds newly
+  shipped themes and style profiles to an existing user `themes.toml`.
+- The installer downloads the Outfit font (SIL OFL 1.1) for the soft style.
+- The soft bar shows the KinetixOS logo, with transparent gaps between the
+  bar islands.
 
 ## [0.1.0] - 2026-10-20
 
