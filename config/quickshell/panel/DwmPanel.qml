@@ -41,6 +41,16 @@ PanelWindow {
     required property bool primaryPanel
 
     readonly property bool islands: Theme.styleBarIslands
+    // macOS menu bar: translucent full-width strip, KinetixOS logo, bold app
+    // name, numbered workspaces and the clock before the power button.
+    readonly property bool macLayout: Theme.styleBarLayout === "macos"
+
+    function appName(windowClass) {
+        if (!windowClass || windowClass === "application-x-executable")
+            return "Desktop";
+        const name = String(windowClass).split(/[.-]/).pop();
+        return name.charAt(0).toUpperCase() + name.substring(1);
+    }
 
     implicitHeight: Theme.panelWindowHeight
     // Always create the window with a transparent color: Quickshell picks an
@@ -61,6 +71,8 @@ PanelWindow {
         anchors.fill: parent
         visible: !Theme.barIslandsTransparent
         color: Theme.barBackground
+        // macOS layout: a translucent strip the compositor blurs.
+        opacity: root.macLayout ? Theme.styleBarOpacity / 100 : 1
     }
 
     Rectangle {
@@ -72,9 +84,9 @@ PanelWindow {
         anchors.topMargin: Theme.panelMargin
         anchors.bottomMargin: 0
         opacity: 1.0
-        color: root.islands ? Theme.transparent : Theme.barBackground
+        color: root.islands || root.macLayout ? Theme.transparent : Theme.barBackground
         border.color: Theme.border
-        border.width: root.islands ? 0 : Theme.pillBorderWidth
+        border.width: root.islands || root.macLayout ? 0 : Theme.pillBorderWidth
         radius: Theme.barRadius
 
         PillShadow { cornerRadius: island.radius }
@@ -112,6 +124,7 @@ PanelWindow {
 
                     LogoButton {
                         id: logoButton
+                        apple: false
                         onActivated: {
                             root.popupRequested(root, "controlcenter");
                             root.controlCenterModel.toggle();
@@ -136,6 +149,10 @@ PanelWindow {
                                     required property int modelData
 
                                     soft: root.islands
+                                    dot: false
+                                    whiteText: root.macLayout
+                                    boldSelected: !root.macLayout
+                                    fillSelected: !root.macLayout
                                     label: root.state.workspaceNames[modelData]
                                     selected: modelData === root.state.currentWorkspaceForScreen(root.screen)
                                     occupied: root.state.workspaceOccupied(modelData)
@@ -155,15 +172,16 @@ PanelWindow {
                     PanelPill {
                         Layout.preferredWidth: Math.min(activeTitle.implicitWidth + Theme.pillHorizontalPadding * 2, 260)
                         Layout.preferredHeight: Theme.pillHeight
-                        outlined: !root.islands
+                        outlined: !root.islands && !root.macLayout
 
                         UiText {
                             id: activeTitle
                             anchors.fill: parent
                             anchors.leftMargin: Theme.pillHorizontalPadding
                             anchors.rightMargin: Theme.pillHorizontalPadding
-                            text: root.state.activeWindowTitle
-                            color: root.islands ? Theme.textSecondary : Theme.text
+                            text: root.macLayout ? root.appName(root.state.activeWindowClass) : root.state.activeWindowTitle
+                            color: root.macLayout ? Theme.textStrong : root.islands ? Theme.textSecondary : Theme.text
+                            font.weight: root.macLayout ? Theme.styleFontWeightStrong : Font.Normal
                             elide: Text.ElideRight
                             verticalAlignment: Text.AlignVCenter
                         }
@@ -173,6 +191,7 @@ PanelWindow {
             }
 
             PanelPill {
+                visible: !root.macLayout
                 Layout.preferredWidth: (root.islands ? softClock.implicitWidth : clockLabel.implicitWidth)
                     + Theme.pillHorizontalPadding * 2 + Theme.islandPadding * 2
                 Layout.preferredHeight: root.islands ? Theme.panelHeight : Theme.pillHeight
@@ -249,6 +268,7 @@ PanelWindow {
 
                         delegate: PanelPill {
                             required property string modelData
+                            visible: !root.macLayout
                             Layout.preferredWidth: statusLabel.implicitWidth + Theme.pillHorizontalPadding * 2
                             Layout.preferredHeight: Theme.pillHeight
                             outlined: true
@@ -422,6 +442,17 @@ PanelWindow {
                         }
                     }
 
+                    // macOS layout: the clock sits just before the power button.
+                    UiText {
+                        visible: root.macLayout
+                        Layout.leftMargin: Theme.spacingMd
+                        Layout.rightMargin: Theme.spacingMd
+                        text: root.clock.macText
+                        color: Theme.textStrong
+                        font.weight: Theme.styleFontWeight
+                        font.pixelSize: Theme.panelFontSize
+                    }
+
                     PanelPill {
                         visible: root.panelSettingsModel.widgetEnabled("power")
                         Layout.preferredWidth: Theme.pillHeight
@@ -451,6 +482,7 @@ PanelWindow {
                             }
                         }
                     }
+
                 }
             }
         }

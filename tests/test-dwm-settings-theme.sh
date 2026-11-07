@@ -4,6 +4,11 @@ set -euo pipefail
 repo=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 helper=$repo/scripts/dwm-settings-theme
 work=$(mktemp -d)
+# These checks exercise theme mechanics against a Nord-active copy of the
+# shipped themes.toml; the shipped default itself is asserted once here.
+grep -Fqx 'theme = "macos-tahoe"   # ← change only this line to switch themes' "$repo/config/themes.toml"
+fixture_themes=$work/fixture-themes.toml
+sed 's/^theme = "macos-tahoe"   #/theme = "nord"   #/' "$repo/config/themes.toml" >"$fixture_themes"
 cleanup() {
 	rm -rf "$work"
 }
@@ -31,7 +36,7 @@ xsettings_stub=$work/reload-xsettings
 
 mkdir -p "$config_home/kinetixos" "$data_home/kinetixos/config" "$state_home" \
 	"$runtime_dir" "$home_dir"
-cp "$repo/config/themes.toml" "$managed_file"
+cp "$fixture_themes" "$managed_file"
 
 cat >"$apply_stub" <<'SH'
 #!/bin/sh
@@ -386,7 +391,7 @@ grep -Fqx 'dwm-settings-theme: XDG_RUNTIME_DIR must be an absolute path' \
 reset_fixture() {
 	rm -rf "$config_home" "$state_home" "$runtime_dir" "$work/dconf" "$work/xfconf"
 	mkdir -p "$config_home/kinetixos" "$state_home" "$runtime_dir" "$work/dconf" "$work/xfconf"
-	cp "$repo/config/themes.toml" "$themes_file"
+	cp "$fixture_themes" "$themes_file"
 	chmod 640 "$themes_file"
 	: >"$work/apply.log"
 	: >"$work/live-only.log"
@@ -449,8 +454,8 @@ relative_home=$work/relative-home
 relative_runtime=$work/relative-xdg-runtime
 mkdir -p "$relative_home/.config/kinetixos" \
 	"$relative_home/.local/share/kinetixos/config" "$relative_runtime"
-cp "$repo/config/themes.toml" "$relative_home/.config/kinetixos/themes.toml"
-cp "$repo/config/themes.toml" "$relative_home/.local/share/kinetixos/config/themes.toml"
+cp "$fixture_themes" "$relative_home/.config/kinetixos/themes.toml"
+cp "$fixture_themes" "$relative_home/.local/share/kinetixos/config/themes.toml"
 (
 	cd "$work"
 	HOME=$relative_home XDG_CONFIG_HOME=relative-config XDG_DATA_HOME=relative-data \
@@ -1595,7 +1600,7 @@ fi
 chmod 700 "$config_home/kinetixos"
 rm "$themes_file"
 ln -s "$work/outside-themes.toml" "$themes_file"
-cp "$repo/config/themes.toml" "$work/outside-themes.toml"
+cp "$fixture_themes" "$work/outside-themes.toml"
 outside_hash=$(sha256sum "$work/outside-themes.toml")
 symlink_apply_output=$(HOME=$home_dir XDG_CONFIG_HOME=$config_home XDG_DATA_HOME=$data_home \
 	XDG_STATE_HOME=$state_home XDG_RUNTIME_DIR=$runtime_dir \
@@ -1947,7 +1952,7 @@ fi
 grep -Fq 'changed after the interrupted transaction' "$work/managed-source-recover.err"
 grep -Fqx $'recovery\tavailable\tpersonalize-qt\tnord' \
 	< <(run_theme recovery-status)
-cp "$repo/config/themes.toml" "$managed_file"
+cp "$fixture_themes" "$managed_file"
 reset_fixture
 
 printf 'personalization-protocol\t1\t0\nfont\tFont One\n' \
@@ -2268,6 +2273,32 @@ sed -i '0,/^theme = "nord"/s//theme = "moderno-morbido"/' "$themes_file"
 sed -i '/^shadow_radius[[:space:]]*=/d' "$themes_file"
 run_picom_style_apply
 grep -Fqx 'apply-theme-style' "$picom_style_log"
+# A style with blur = true adds the optional sixth value.
+cp "$managed_file" "$themes_file"
+sed -i '0,/^theme = "nord"/s//theme = "moderno-morbido"/' "$themes_file"
+sed -i '/^launcher_footer[[:space:]]*=/a blur = true' "$themes_file"
+run_picom_style_apply
+grep -Fqx 'apply-theme-style 14 18 30 45 10 1' "$picom_style_log"
+
+# A style with gtk_css = true owns a marked block in each gtk.css; other
+# themes remove it and leave the user's own CSS byte-identical.
+mkdir -p "$config_home/gtk-3.0"
+printf '/* mine */\n' >"$config_home/gtk-3.0/gtk.css"
+rm -f "$config_home/gtk-4.0/gtk.css" "$config_home/gtk-3.0/gtk.css.kinetixos-backup"
+sed -i '/^launcher_footer[[:space:]]*=/a gtk_css = true' "$themes_file"
+run_picom_style_apply
+grep -Fqx '/* mine */' "$config_home/gtk-3.0/gtk.css"
+grep -Fqx '/* kinetixos style css begin */' "$config_home/gtk-3.0/gtk.css"
+grep -Fqx '@define-color accent_bg_color #A6B4FF;' "$config_home/gtk-3.0/gtk.css"
+grep -Fqx '@define-color accent_bg_color #A6B4FF;' "$config_home/gtk-4.0/gtk.css"
+grep -Fq 'border-radius: 8px;' "$config_home/gtk-4.0/gtk.css"
+[[ $(<"$config_home/gtk-3.0/gtk.css.kinetixos-backup") == '/* mine */' ]]
+run_picom_style_apply
+[[ $(grep -c 'kinetixos style css begin' "$config_home/gtk-3.0/gtk.css") == 1 ]]
+sed -i '0,/^theme = "moderno-morbido"/s//theme = "nord"/' "$themes_file"
+run_picom_style_apply
+[[ $(<"$config_home/gtk-3.0/gtk.css") == '/* mine */' ]]
+[[ ! -e $config_home/gtk-4.0/gtk.css ]]
 
 # merge-shipped adds only the shipped sections an existing user file lacks.
 {

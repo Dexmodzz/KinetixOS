@@ -100,8 +100,9 @@ if printf '%s\n' "$changed_arrange_block" | grep -q 'XMapWindow'; then
 	exit 1
 fi
 grep -q 'ewmh_replace_root_cardinal(dwmtagupdateatom, data, 1)' "$repo_dir/dwm.c"
-grep -q 'm->barwin, m->wx, m->by, m->ww, m->bh' "$repo_dir/dwm.c"
-grep -q 'selmon->barwin, selmon->wx, selmon->by, selmon->ww, selmon->bh' "$repo_dir/dwm.c"
+# The bar spans the whole monitor; a side dock only narrows the client area.
+grep -q 'm->barwin, m->mx, m->by, m->mw, m->bh' "$repo_dir/dwm.c"
+grep -q 'selmon->barwin, selmon->mx, selmon->by, selmon->mw, selmon->bh' "$repo_dir/dwm.c"
 set_fullscreen_body=$(sed -n '/^setfullscreen(Client \*c, int fullscreen)/,/^}$/p' "$repo_dir/dwm.c")
 printf '%s\n' "$set_fullscreen_body" | grep -q 'actualfullscreenchanged'
 printf '%s\n' "$set_fullscreen_body" | grep -q 'wasactualfullscreen'

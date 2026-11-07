@@ -31,7 +31,7 @@ managed_themes_file=${DWM_APPEARANCE_MANAGED_THEMES_FILE:-$data_home/kinetixos/c
 readonly max_themes_size=1048576
 readonly max_theme_count=128
 readonly max_error_count=256
-readonly max_entry_count=512
+readonly max_entry_count=1024
 readonly max_theme_name_length=505
 readonly max_inventory_candidates=256
 readonly max_font_candidates=24
@@ -233,6 +233,8 @@ readonly -a optional_shell_colors=(
 
 # Style profile schema: key|kind|minimum|maximum. Sizes are pixels, alpha and
 # opacity values are percentages, and weights use the CSS 100-900 scale.
+# An enum lists its allowed values in the minimum field; a list holds up to
+# 32 comma-separated desktop IDs.
 readonly -a style_schema=(
 	'corner_radius|int|0|64'
 	'bar_radius|int|0|64'
@@ -258,6 +260,16 @@ readonly -a style_schema=(
 	'font_weight|int|100|900'
 	'font_weight_strong|int|100|900'
 	'launcher_footer|bool|0|0'
+	'bar_layout|enum|default,macos|0'
+	'bar_opacity|int|0|100'
+	'dock|bool|0|0'
+	'dock_icon_size|int|24|96'
+	'dock_magnify|int|100|200'
+	'dock_radius|int|0|64'
+	'dock_opacity|int|0|100'
+	'dock_apps|list|0|0'
+	'blur|bool|0|0'
+	'gtk_css|bool|0|0'
 )
 
 style_schema_entry() {
@@ -649,6 +661,18 @@ validate_styles() {
 				if [[ ! $raw =~ ^[A-Za-z0-9\ ._-]+$ ]] || ((${#raw} > max_font_family_length)); then
 					style_invalid[$style]=1
 					add_error "style:$style" invalid-value "Style key '$key' is not a supported font family name"
+				fi
+				;;
+			enum)
+				if [[ ,$minimum, != *",$raw,"* ]]; then
+					style_invalid[$style]=1
+					add_error "style:$style" invalid-value "Style key '$key' must be one of ${minimum//,/, }"
+				fi
+				;;
+			list)
+				if [[ ! $raw =~ ^[A-Za-z0-9._-]+(,[A-Za-z0-9._-]+){0,31}$ ]]; then
+					style_invalid[$style]=1
+					add_error "style:$style" invalid-value "Style key '$key' must be a comma-separated list of desktop IDs"
 				fi
 				;;
 			esac

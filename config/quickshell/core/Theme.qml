@@ -61,6 +61,16 @@ Singleton {
     property string styleFontFamily: ""
     property int styleFontWeight: 400
     property int styleFontWeightStrong: 700
+    // Bar layout, dock and blur. Defaults keep the classic panel and no dock.
+    property string styleBarLayout: "default"
+    property int styleBarOpacity: 100
+    property bool styleDock: false
+    property int styleDockIconSize: 48
+    property int styleDockMagnify: 100
+    property int styleDockRadius: 0
+    property int styleDockOpacity: 100
+    property var styleDockApps: []
+    property bool styleBlur: false
     readonly property bool softStyle: styleName !== "classic"
 
     // "#RRGGBB" plus a 0-100 percentage -> "#AARRGGBB".
@@ -163,6 +173,15 @@ Singleton {
         root.styleFontFamily = typeof v.font_family === "string" ? v.font_family : "";
         root.styleFontWeight = root.styleInt(v, "font_weight", 400);
         root.styleFontWeightStrong = root.styleInt(v, "font_weight_strong", 700);
+        root.styleBarLayout = v.bar_layout === "macos" ? "macos" : "default";
+        root.styleBarOpacity = root.styleInt(v, "bar_opacity", 100);
+        root.styleDock = v.dock === "true";
+        root.styleDockIconSize = root.styleInt(v, "dock_icon_size", 48);
+        root.styleDockMagnify = root.styleInt(v, "dock_magnify", 100);
+        root.styleDockRadius = root.styleInt(v, "dock_radius", 0);
+        root.styleDockOpacity = root.styleInt(v, "dock_opacity", 100);
+        root.styleDockApps = typeof v.dock_apps === "string" && v.dock_apps.length > 0 ? v.dock_apps.split(",") : [];
+        root.styleBlur = v.blur === "true";
     }
 
     readonly property string defaultFontFamily: "MesloLGS Nerd Font Mono"

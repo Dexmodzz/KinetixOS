@@ -457,6 +457,26 @@ DWM_TEST_DEX_LOG="$work/dex.log" \
 	"$repo/scripts/dwm-quickshell-launcher" launch-chatgpt
 assert_file_line "$work/dex.log" "$chatgpt_native_desktop"
 
+# The dock launches favorites by desktop ID through the same path.
+rm -f "$work/dex.log"
+DWM_TEST_DEX_LOG="$work/dex.log" \
+	HOME="$work/home" \
+	PATH="$work/bin:$PATH" \
+	XDG_DATA_HOME="$work/empty" \
+	XDG_DATA_DIRS="$work/data" \
+	"$repo/scripts/dwm-quickshell-launcher" launch-id visible
+assert_file_line "$work/dex.log" "$work/data/applications/visible.desktop"
+if HOME="$work/home" PATH="$work/bin:$PATH" XDG_DATA_HOME="$work/empty" \
+	XDG_DATA_DIRS="$work/data" \
+	"$repo/scripts/dwm-quickshell-launcher" launch-id missing-app 2>/dev/null; then
+	printf '%s\n' 'launch-id accepted an unknown desktop ID' >&2
+	exit 1
+fi
+if "$repo/scripts/dwm-quickshell-launcher" launch-id ../visible 2>/dev/null; then
+	printf '%s\n' 'launch-id accepted a path instead of a desktop ID' >&2
+	exit 1
+fi
+
 rm "$chatgpt_native_desktop"
 output=$(
 	LANG=en_US.UTF-8 \

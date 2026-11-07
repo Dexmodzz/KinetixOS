@@ -38,6 +38,22 @@ grep -Fq 'Theme.menuSelectedText' "$core/MenuRow.qml"
 grep -Fq 'Theme.menuHeaderHeight' "$core/MenuHeader.qml"
 grep -Fq 'Theme.fontBodySmallSize' "$core/SectionLabel.qml"
 
+# Bar layout, dock and blur style tokens default to the classic look.
+grep -Fq 'property string styleBarLayout: "default"' "$theme"
+grep -Fq 'property int styleBarOpacity: 100' "$theme"
+grep -Fq 'property bool styleDock: false' "$theme"
+grep -Fq 'property int styleDockIconSize: 48' "$theme"
+grep -Fq 'property int styleDockMagnify: 100' "$theme"
+grep -Fq 'property int styleDockRadius: 0' "$theme"
+grep -Fq 'property int styleDockOpacity: 100' "$theme"
+grep -Fq 'property var styleDockApps: []' "$theme"
+grep -Fq 'property bool styleBlur: false' "$theme"
+grep -Fq 'root.styleBarLayout = v.bar_layout === "macos" ? "macos" : "default";' "$theme"
+grep -Fq 'root.styleDock = v.dock === "true";' "$theme"
+grep -Fq 'root.styleBlur = v.blur === "true";' "$theme"
+grep -Fq 'root.styleDockApps = typeof v.dock_apps === "string" && v.dock_apps.length > 0 ? v.dock_apps.split(",") : [];' "$theme"
+grep -Fq 'function withAlpha(color, percent)' "$theme"
+
 grep -Fq 'This is a design influence, not a shell transplant.' "$design_doc"
 grep -Fq 'current root-scoped models' "$design_doc"
 

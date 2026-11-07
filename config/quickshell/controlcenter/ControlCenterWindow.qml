@@ -14,6 +14,7 @@ ClickAwayPopup {
     required property var powerMenuModel
     required property var powerModel
     required property var settingsModel
+    property var dockSettings: null
 
     readonly property int cardWidth: Theme.controlCenterWidth
     readonly property int compactRowHeight: Math.max(28, Theme.fontBodySize + 12)
@@ -335,6 +336,88 @@ ClickAwayPopup {
                                 || (root.controlCenterModel.panelSettingsModel.mutationReady
                                     && !root.controlCenterModel.panelSettingsModel.busy)
                             onActivated: root.controlCenterModel.toggleWidget(modelData)
+                        }
+                    }
+
+                    PanelSeparator {
+                        visible: root.dockSettings !== null
+                        Layout.topMargin: Theme.spacingSm
+                        Layout.bottomMargin: Theme.spacingSm
+                    }
+
+                    // Dock: show or hide it, and pick its screen edge.
+                    Item {
+                        Layout.fillWidth: true
+                        visible: root.dockSettings !== null
+                        implicitHeight: root.compactRowHeight
+
+                        UiText {
+                            anchors.left: parent.left
+                            anchors.leftMargin: Theme.controlPaddingX
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "Dock"
+                            color: Theme.menuText
+                        }
+
+                        PanelToggleSwitch {
+                            anchors.right: parent.right
+                            anchors.rightMargin: Theme.controlPaddingX
+                            anchors.verticalCenter: parent.verticalCenter
+                            accessibleName: "Show Dock"
+                            checked: root.dockSettings !== null && root.dockSettings.enabled
+                            onToggled: root.dockSettings.toggleEnabled()
+                        }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Layout.leftMargin: Theme.controlPaddingX
+                        Layout.rightMargin: Theme.controlPaddingX
+                        Layout.topMargin: 2
+                        visible: root.dockSettings !== null
+                        enabled: root.dockSettings !== null && root.dockSettings.enabled
+                        opacity: enabled ? 1 : 0.45
+                        spacing: Theme.spacingSm
+
+                        Repeater {
+                            model: [
+                                { "id": "left", "label": "Left" },
+                                { "id": "bottom", "label": "Bottom" },
+                                { "id": "top", "label": "Top" },
+                                { "id": "right", "label": "Right" }
+                            ]
+
+                            delegate: Rectangle {
+                                id: dockEdgeButton
+
+                                required property var modelData
+                                readonly property bool selected: root.dockSettings !== null
+                                    && root.dockSettings.position === modelData.id
+
+                                Layout.fillWidth: true
+                                implicitHeight: Theme.scaledSize(26)
+                                radius: Theme.controlRadius
+                                color: selected ? Theme.controlSelectedFill
+                                    : dockEdgeMouse.containsMouse ? Theme.controlHoverFill : Theme.controlNormalFill
+                                border.color: selected ? Theme.controlSelectedBorder : Theme.controlNormalBorder
+                                border.width: Theme.controlBorderWidth
+
+                                UiText {
+                                    anchors.centerIn: parent
+                                    text: dockEdgeButton.modelData.label
+                                    color: dockEdgeButton.selected ? Theme.controlSelectedText : Theme.text
+                                    font.pixelSize: Theme.smallFontSize
+                                }
+
+                                MouseArea {
+                                    id: dockEdgeMouse
+
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: root.dockSettings.setPosition(dockEdgeButton.modelData.id)
+                                }
+                            }
                         }
                     }
                 }

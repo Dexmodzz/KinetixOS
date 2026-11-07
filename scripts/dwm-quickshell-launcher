@@ -11,7 +11,7 @@ if [ ! -x "$session_launcher" ]; then
 fi
 
 usage() {
-	printf 'usage: %s list|launch <desktop-file>|launch-chatgpt\n' "$0" >&2
+	printf 'usage: %s list|launch <desktop-file>|launch-id <desktop-id>|launch-chatgpt\n' "$0" >&2
 }
 
 desktop_id() {
@@ -410,6 +410,28 @@ launch_app() {
 	fallback_launch "$file"
 }
 
+# Launch the first desktop file whose ID matches, in XDG precedence order.
+launch_id() {
+	id=$1
+	case $id in
+	'' | *[!A-Za-z0-9._-]* | .*)
+		printf 'invalid desktop ID: %s\n' "$id" >&2
+		return 2
+		;;
+	esac
+	file=$(desktop_files | while IFS= read -r candidate; do
+		if [ "$(desktop_id "$candidate")" = "$id" ]; then
+			printf '%s\n' "$candidate"
+			break
+		fi
+	done)
+	[ -n "$file" ] || {
+		printf 'desktop entry not found: %s\n' "$id" >&2
+		return 1
+	}
+	launch_app "$file"
+}
+
 launch_chatgpt() {
 	file=$(chatgpt_native_desktop)
 	if [ -n "$file" ]; then
@@ -434,6 +456,13 @@ launch)
 		exit 2
 	fi
 	launch_app "$2"
+	;;
+launch-id)
+	if [ $# -ne 2 ]; then
+		usage
+		exit 2
+	fi
+	launch_id "$2"
 	;;
 launch-chatgpt)
 	if [ $# -ne 1 ]; then

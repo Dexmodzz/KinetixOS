@@ -5,6 +5,11 @@ repo=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 helper=$repo/scripts/dwm-settings-appearance
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT HUP INT TERM
+# These checks exercise theme mechanics against a Nord-active copy of the
+# shipped themes.toml; the shipped default itself is asserted once here.
+grep -Fqx 'theme = "macos-tahoe"   # ← change only this line to switch themes' "$repo/config/themes.toml"
+fixture_themes=$work/fixture-themes.toml
+sed 's/^theme = "macos-tahoe"   #/theme = "nord"   #/' "$repo/config/themes.toml" >"$fixture_themes"
 
 config_home=$work/config
 data_root=$work/data
@@ -13,7 +18,7 @@ mkdir -p "$config_home/kinetixos" "$config_home/alacritty" "$config_home/kitty" 
 	"$config_home/gtk-3.0" "$config_home/gtk-4.0" \
 	"$data_root/themes/Nordic/gtk-3.0" "$data_root/themes/Nordic/gtk-4.0" \
 	"$data_root/icons/Capitaine-Cursors-White/cursors" "$bin_dir"
-cp "$repo/config/themes.toml" "$config_home/kinetixos/themes.toml"
+cp "$fixture_themes" "$config_home/kinetixos/themes.toml"
 declare -A fixture_color=()
 while read -r key _ color; do
 	fixture_color[$key]=${color//\"/}
@@ -209,7 +214,7 @@ grep -Fqx $'provider\tappearance\tavailable\tread-only\tShared theme inventory a
 grep -Fqx $'source\tuser\t'"$config_home/kinetixos/themes.toml" <<<"$output"
 grep -Fqx $'active\tnord\tnord\tselected' <<<"$output"
 grep -Fqx $'theme\tnord\tselected\tvalid\ttrue\tNordic\tTheme record is complete' <<<"$output"
-[[ $(grep -c $'^theme\t' <<<"$output") -eq 16 ]]
+[[ $(grep -c $'^theme\t' <<<"$output") -eq 17 ]]
 grep -Fqx $'color\tbackground\t#2E3440\tterm_bg' <<<"$output"
 grep -Fqx $'color\taccent\t#81A1C1\tselbordercolor' <<<"$output"
 grep -Fqx $'color\tdanger\t#BF616A\tterm_color1' <<<"$output"
@@ -315,7 +320,7 @@ grep -Fqx $'active\tnord\tnord\tselected' <<<"$immutable_snapshot"
 grep -Fq 'theme = "dracula"' "$config_home/kinetixos/themes.toml"
 rm -f "$bin_dir/awk"
 ln -s "$real_awk" "$bin_dir/awk"
-cp "$repo/config/themes.toml" "$config_home/kinetixos/themes.toml"
+cp "$fixture_themes" "$config_home/kinetixos/themes.toml"
 
 no_qt_bin=$work/no-qt-bin
 cp -a "$bin_dir" "$no_qt_bin"
@@ -479,7 +484,7 @@ if grep -Fq $'error\tparser\tmalformed-section\t' <<<"$commented_headers"; then
 	printf 'Valid commented section header was rejected\n' >&2
 	exit 1
 fi
-cp "$repo/config/themes.toml" "$config_home/kinetixos/themes.toml"
+cp "$fixture_themes" "$config_home/kinetixos/themes.toml"
 
 sed -i 's/^\[theme\.dracula\]$/[theme.dracula] trailing/' "$config_home/kinetixos/themes.toml"
 malformed_header=$(snapshot)
@@ -492,7 +497,7 @@ if grep -Fq $'theme\tdracula\t' <<<"$malformed_header"; then
 	exit 1
 fi
 
-cp "$repo/config/themes.toml" "$config_home/kinetixos/themes.toml"
+cp "$fixture_themes" "$config_home/kinetixos/themes.toml"
 sed -i 's/^\[active\]$/[active/' "$config_home/kinetixos/themes.toml"
 truncated_header=$(snapshot)
 grep -Fqx $'provider\tappearance\tpartial\tread-only\tShared theme inventory and integration state' \
@@ -500,11 +505,11 @@ grep -Fqx $'provider\tappearance\tpartial\tread-only\tShared theme inventory and
 grep -Fqx $'active\tnone\tnord\trecovery' <<<"$truncated_header"
 grep -Fq $'error\tparser\tmalformed-section\tMalformed theme section header at line ' \
 	<<<"$truncated_header"
-cp "$repo/config/themes.toml" "$config_home/kinetixos/themes.toml"
+cp "$fixture_themes" "$config_home/kinetixos/themes.toml"
 
 {
 	printf '%s\n' '[ignored]' 'extra = [{x="a=b"}, {x='"'"'c=d'"'"'}] # ignored = comment'
-	cat "$repo/config/themes.toml"
+	cat "$fixture_themes"
 } >"$config_home/kinetixos/themes.toml"
 set +e
 inline_table=$(snapshot)
@@ -517,7 +522,7 @@ grep -Fqx $'active\tnord\tnord\tselected' <<<"$inline_table"
 
 {
 	printf '[ignored]\nextra = {x=1}\n'
-	cat "$repo/config/themes.toml"
+	cat "$fixture_themes"
 } >"$config_home/kinetixos/themes.toml"
 set +e
 direct_inline_table=$(snapshot)
@@ -530,7 +535,7 @@ grep -Fqx $'active\tnord\tnord\tselected' <<<"$direct_inline_table"
 
 {
 	printf '[ignored]\nextra = ["one", "two"]\n'
-	cat "$repo/config/themes.toml"
+	cat "$fixture_themes"
 } >"$config_home/kinetixos/themes.toml"
 scalar_array=$(snapshot)
 grep -Fqx $'provider\tappearance\tavailable\tread-only\tShared theme inventory and integration state' \
@@ -539,14 +544,14 @@ grep -Fqx $'active\tnord\tnord\tselected' <<<"$scalar_array"
 
 {
 	printf '[ignored]\nextra = [\n  {x=1},\n  {x=2}\n]\n'
-	cat "$repo/config/themes.toml"
+	cat "$fixture_themes"
 } >"$config_home/kinetixos/themes.toml"
 multiline_array=$(snapshot)
 grep -Fqx $'active\tnord\tnord\tselected' <<<"$multiline_array"
 
 {
 	printf '[ignored]\nextra = [\n'
-	cat "$repo/config/themes.toml"
+	cat "$fixture_themes"
 } >"$config_home/kinetixos/themes.toml"
 set +e
 unterminated_array=$(snapshot)
@@ -560,7 +565,7 @@ grep -Fqx $'error\tparser\tunterminated-complex-value\tAn unrelated multi-line a
 
 {
 	printf '[ignored]\nextra = [\n  {x=1}, {x=2}]\n'
-	cat "$repo/config/themes.toml"
+	cat "$fixture_themes"
 } >"$config_home/kinetixos/themes.toml"
 set +e
 runtime_stuck_array=$(snapshot)
@@ -585,17 +590,17 @@ done
 
 {
 	printf '[ignored]\nextra = [\n'
-	for ((nested_index = 0; nested_index < 257; nested_index++)); do
+	for ((nested_index = 0; nested_index < 513; nested_index++)); do
 		printf '  {outer={inner="x"}},\n'
 	done
 	printf ']\n'
-	cat "$repo/config/themes.toml"
+	cat "$fixture_themes"
 } >"$config_home/kinetixos/themes.toml"
 nested_inline_tables=$(snapshot)
 grep -Fqx $'active\tnord\tnord\tselected' <<<"$nested_inline_tables"
-grep -Fqx $'error\tparser\tentry-limit\tTheme configuration exceeds the runtime parser limit of 512 entries' \
+grep -Fqx $'error\tparser\tentry-limit\tTheme configuration exceeds the runtime parser limit of 1024 entries' \
 	<<<"$nested_inline_tables"
-cp "$repo/config/themes.toml" "$config_home/kinetixos/themes.toml"
+cp "$fixture_themes" "$config_home/kinetixos/themes.toml"
 
 printf '\n[theme.@unsafe]\nterm_bg = "#000000"\n' >>"$config_home/kinetixos/themes.toml"
 unsafe_name=$(snapshot)
@@ -607,7 +612,7 @@ if grep -Fq $'theme\t@unsafe\t' <<<"$unsafe_name"; then
 	printf 'Unsafe theme identifier was inventoried\n' >&2
 	exit 1
 fi
-cp "$repo/config/themes.toml" "$config_home/kinetixos/themes.toml"
+cp "$fixture_themes" "$config_home/kinetixos/themes.toml"
 
 rmdir "$data_root/themes/Nordic/gtk-4.0"
 partial_gtk_assets=$(snapshot)
@@ -754,6 +759,48 @@ missing_style=$(snapshot)
 grep -Fqx $'style\tclassic\tfallback' <<<"$missing_style"
 grep -Fq $'error\tstyle:soft\tmissing\t' <<<"$missing_style"
 
+# The shipped macos-tahoe theme is valid and selects the tahoe style.
+cp "$work/managed-themes.toml" "$config_home/kinetixos/themes.toml"
+sed -i '0,/theme = "nord"/s//theme = "macos-tahoe"/' "$config_home/kinetixos/themes.toml"
+tahoe_style=$(snapshot)
+grep -Fqx $'active\tmacos-tahoe\tmacos-tahoe\tselected' <<<"$tahoe_style"
+grep -Fqx $'style\ttahoe\tselected' <<<"$tahoe_style"
+grep -Fqx $'style-value\tbar_layout\tmacos' <<<"$tahoe_style"
+grep -Fqx $'style-value\tdock\ttrue' <<<"$tahoe_style"
+grep -Fqx $'style-value\tblur\ttrue' <<<"$tahoe_style"
+grep -Fqx $'style-value\tgtk_css\ttrue' <<<"$tahoe_style"
+grep -Fqx $'color\taccent\t#A6B4FF\tselbordercolor' <<<"$tahoe_style"
+if grep -E $'^error\t(parser|active|theme:macos-tahoe|style:tahoe)\t' <<<"$tahoe_style" >&2; then
+	exit 1
+fi
+
+# Bar layout, dock and blur tokens are validated and reported like the others.
+cp "$work/managed-themes.toml" "$config_home/kinetixos/themes.toml"
+sed -i '0,/theme = "nord"/s//theme = "moderno-morbido"/' "$config_home/kinetixos/themes.toml"
+sed -i '/^launcher_footer[[:space:]]*=/a bar_layout = "macos"\nbar_opacity = 35\ndock = true\ndock_icon_size = 48\ndock_magnify = 150\ndock_radius = 22\ndock_opacity = 45\ndock_apps = "Alacritty,thunar"\nblur = true' \
+	"$config_home/kinetixos/themes.toml"
+dock_style=$(snapshot)
+grep -Fqx $'style\tsoft\tselected' <<<"$dock_style"
+grep -Fqx $'style-value\tbar_layout\tmacos' <<<"$dock_style"
+grep -Fqx $'style-value\tbar_opacity\t35' <<<"$dock_style"
+grep -Fqx $'style-value\tdock\ttrue' <<<"$dock_style"
+grep -Fqx $'style-value\tdock_magnify\t150' <<<"$dock_style"
+grep -Fqx $'style-value\tdock_apps\tAlacritty,thunar' <<<"$dock_style"
+grep -Fqx $'style-value\tblur\ttrue' <<<"$dock_style"
+
+sed -i 's/^bar_layout[[:space:]]*=.*/bar_layout = "foo"/' "$config_home/kinetixos/themes.toml"
+bad_layout=$(snapshot)
+grep -Fqx $'style\tclassic\tfallback' <<<"$bad_layout"
+grep -Fq $'error\tstyle:soft\tinvalid-value\tStyle key \'bar_layout\' must be one of default, macos' \
+	<<<"$bad_layout"
+
+sed -i 's/^bar_layout[[:space:]]*=.*/bar_layout = "macos"/; s/^dock_apps[[:space:]]*=.*/dock_apps = "a b"/' \
+	"$config_home/kinetixos/themes.toml"
+bad_apps=$(snapshot)
+grep -Fqx $'style\tclassic\tfallback' <<<"$bad_apps"
+grep -Fq $'error\tstyle:soft\tinvalid-value\tStyle key \'dock_apps\' must be a comma-separated list of desktop IDs' \
+	<<<"$bad_apps"
+
 cp "$work/managed-themes.toml" "$config_home/kinetixos/themes.toml"
 sed -i '0,/theme = "nord"/s//theme = "moderno-morbido"/' "$config_home/kinetixos/themes.toml"
 sed -i 's/^shell_popup[[:space:]]*=.*/shell_popup = "blue"/' "$config_home/kinetixos/themes.toml"
@@ -893,7 +940,7 @@ grep -Fqx $'error\ttheme:nord\tinvalid-dark-mode\tTheme dark_mode must be true o
 
 {
 	printf '[ignored]\n'
-	for ((entry_index = 0; entry_index < 512; entry_index++)); do
+	for ((entry_index = 0; entry_index < 1024; entry_index++)); do
 		printf 'extra-%s = 1\n' "$entry_index"
 	done
 	cat "$work/managed-themes.toml"
@@ -905,13 +952,13 @@ set -e
 [[ $alternate_key_status -eq 3 ]]
 grep -Fqx $'provider\tappearance\tunavailable\tread-only\tShared theme inventory and integration state' \
 	<<<"$alternate_key_limit"
-grep -Fqx $'error\tparser\tentry-limit\tTheme configuration exceeds the runtime parser limit of 512 entries' \
+grep -Fqx $'error\tparser\tentry-limit\tTheme configuration exceeds the runtime parser limit of 1024 entries' \
 	<<<"$alternate_key_limit"
 
 printf -v multibyte_key 'é%.0s' {1..300}
 {
 	printf '[ignored]\n'
-	for ((entry_index = 0; entry_index < 512; entry_index++)); do
+	for ((entry_index = 0; entry_index < 1024; entry_index++)); do
 		printf '%s-%s = 1\n' "$multibyte_key" "$entry_index"
 	done
 	cat "$work/managed-themes.toml"
@@ -973,18 +1020,18 @@ grep -Fqx $'theme\tchosen\tselected\tvalid\ttrue\tNordic\tTheme record is comple
 	<<<"$bare_selected_after_cap"
 
 {
-	printf '[active]\ntheme = "t19"\n'
-	for ((theme_index = 0; theme_index < 20; theme_index++)); do
+	printf '[active]\ntheme = "t39"\n'
+	for ((theme_index = 0; theme_index < 40; theme_index++)); do
 		printf '[theme.t%s]\n%s\n' "$theme_index" "$nord_block"
 	done
 } >"$config_home/kinetixos/themes.toml"
 entry_limited=$(snapshot)
 grep -Fqx $'provider\tappearance\tpartial\tread-only\tShared theme inventory and integration state' \
 	<<<"$entry_limited"
-grep -Fqx $'active\tt19\tt0\trecovery' <<<"$entry_limited"
-grep -Fqx $'error\tparser\tentry-limit\tTheme configuration exceeds the runtime parser limit of 512 entries' \
+grep -Fqx $'active\tt39\tt0\trecovery' <<<"$entry_limited"
+grep -Fqx $'error\tparser\tentry-limit\tTheme configuration exceeds the runtime parser limit of 1024 entries' \
 	<<<"$entry_limited"
-if grep -Fq $'theme\tt19\t' <<<"$entry_limited"; then
+if grep -Fq $'theme\tt39\t' <<<"$entry_limited"; then
 	printf 'Theme defined after the runtime entry limit was inventoried\n' >&2
 	exit 1
 fi
@@ -1027,12 +1074,12 @@ timeout 5 env PATH="$bin_dir" GTK_THEME='' XCURSOR_THEME='' \
 	DWM_APPEARANCE_DATA_DIRS="$data_root" "$helper" snapshot \
 	>"$work/scalar-heavy.out"
 grep -Fqx $'active\tnord\tnord\tselected' "$work/scalar-heavy.out"
-grep -Fqx $'error\tparser\tentry-limit\tTheme configuration exceeds the runtime parser limit of 512 entries' \
+grep -Fqx $'error\tparser\tentry-limit\tTheme configuration exceeds the runtime parser limit of 1024 entries' \
 	"$work/scalar-heavy.out"
 
 {
 	cat "$work/managed-themes.toml"
-	for ((post_budget_index = 0; post_budget_index < 512; post_budget_index++)); do
+	for ((post_budget_index = 0; post_budget_index < 1024; post_budget_index++)); do
 		printf 'post-budget%s = 1\n' "$post_budget_index"
 	done
 	printf 'ignored-complex = [{x=1}]\n'

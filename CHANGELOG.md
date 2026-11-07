@@ -19,6 +19,44 @@ versions from `config.mk`.
 - `dwm-settings-theme merge-shipped`, run on install and update, adds newly
   shipped themes and style profiles to an existing user `themes.toml`.
 - The installer downloads the Outfit font (SIL OFL 1.1) for the soft style.
+- "macOS Tahoe" theme: dark system colors, a translucent macOS-style menu bar
+  (KinetixOS logo, bold app name, numbered workspaces, clock before the power
+  button), a dock with favorites, running dots and smooth hover magnification
+  (the pill lengthens with the icons, which rise above it without a blurred
+  band), dual_kawase blur behind the bar and the dock, and the periwinkle
+  accent of Moderno morbido (#A6B4FF) in the shell, GTK3, GTK4 and the
+  terminal.
+- Dock context menu (right click): actions for the clicked app, the open
+  apps, a list of installed apps to add to or remove from the dock, the dock
+  edge, a Trash switch, auto-hide (the dock slides away and comes back when
+  the pointer touches its screen edge) and a hide action. An optional Trash (shown by default)
+  closes the dock: click opens it, right click empties it. Control Center > Bar Widgets has a Dock switch and
+  a Left/Bottom/Top/Right position. Preferences live in
+  `~/.config/kinetixos/dock.json`; pinned apps start from the style's
+  `dock_apps`.
+- Style keys `bar_layout`, `bar_opacity`, `dock`, `dock_icon_size`,
+  `dock_magnify`, `dock_radius`, `dock_opacity`, `dock_apps`, `blur` and
+  `gtk_css`. Their defaults keep every existing theme unchanged.
+- dwm reserves a dock window on any edge (its `_NET_WM_STRUT` left, right,
+  top or bottom) separately from the top panel; a top dock sits under it.
+- `dwm-quickshell-launcher launch-id DESKTOP-ID`.
+
+### Changed
+
+- macOS Tahoe is the default theme for new installs (`[active] theme` in
+  the shipped `themes.toml`). Existing user `themes.toml` files are unchanged.
+
+- The runtime TOML parser limit is 1024 entries (was 512), so the shipped
+  themes file has room for more themes.
+
+### Fixed
+
+- Opening a shell menu no longer blurs the whole screen: Picom ignores the
+  global `blur-background` once a rules list exists, so the generated rules
+  now turn blur off for every window and back on only for the bar and dock.
+- The dock and the panel see running apps and occupied workspaces again:
+  `dwm-quickshell-state` now reads `_NET_CLIENT_LIST`, which xprop prints
+  with a colon instead of an equals sign.
 
 ## [0.1.0] - 2026-10-20
 

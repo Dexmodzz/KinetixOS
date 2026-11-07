@@ -84,7 +84,8 @@ enum { NetSupported, NetWMName, NetWMPid, NetWMState, NetWMCheck,
        NetWMWindowTypeMenu, NetWMWindowTypePopupMenu, NetWMWindowTypeDropdownMenu,
        NetWMWindowTypeCombo, NetWMWindowTypeDnd,
        NetClientList, NetDesktopNames, NetDesktopViewport, NetNumberOfDesktops, NetCurrentDesktop,
-       NetWMDesktop, NetDwmMonitorDesktops, NetDwmSelectedMonitor, NetLast }; /* EWMH atoms */
+       NetWMDesktop, NetDwmMonitorDesktops, NetDwmSelectedMonitor,
+       NetWMStrut, NetWMStrutPartial, NetLast }; /* EWMH atoms */
 enum { WMProtocols, WMDelete, WMState, WMTakeFocus, WMLast }; /* default atoms */
 enum { ClkTagBar, ClkLtSymbol, ClkStatusText, ClkWinTitle,
        ClkClientWin, ClkRootWin, ClkLast }; /* clicks */
@@ -168,6 +169,8 @@ struct Monitor {
 	Client *stack;
 	Monitor *next;
 	Window barwin;
+	Window dockwin; /* external dock on any edge, reserved apart from barwin */
+	int dockl, dockr, dockt, dockh; /* left, right, top and bottom space reserved for dockwin */
 	Window traywin;
 	const Layout *lt[2];
 	Pertag *pertag;
@@ -334,6 +337,10 @@ static void ewmh_set_desktop_names(void);
 static void ewmh_set_fullscreen_state(Client *c, int fullscreen);
 static Atom getatomprop(Client *c, Atom prop);
 static Atom getwinatomprop(Window win, Atom prop);
+static void cleardock(Monitor *m);
+static int dockfloats(Monitor *m);
+static Monitor *docklayermon(Window win);
+static int getstrut(Window w, int strut[4]);
 static void setclientdesktop(Client *c);
 static void setcurrentdesktop(void);
 static void setdesktopnames(void);
@@ -1068,7 +1075,7 @@ configurenotify(XEvent *e)
 						resizeclient(c, m->mx, m->my, m->mw, m->mh);
 				}
 				if (m->barwin)
-					XMoveResizeWindow(dpy, m->barwin, m->wx, m->by, m->ww, m->bh);
+					XMoveResizeWindow(dpy, m->barwin, m->mx, m->by, m->mw, m->bh);
 			}
 			arrange(NULL);
 			focus(NULL);
@@ -1077,14 +1084,18 @@ configurenotify(XEvent *e)
 	} else if (!wintoclient(ev->window)
 	    && XGetWindowAttributes(dpy, ev->window, &wa)
 	    && isaltbar(ev->window, &wa)) {
-		for (oldm = mons; oldm && oldm->barwin != ev->window;
-		     oldm = oldm->next);
+		for (oldm = mons; oldm && oldm->barwin != ev->window
+		     && oldm->dockwin != ev->window; oldm = oldm->next);
 		m = recttomon(wa.x, wa.y, wa.width, wa.height);
 		if (m && INTERSECT(wa.x, wa.y, wa.width, wa.height, m) <= 0)
 			m = oldm;
 		if (oldm && m && oldm != m) {
-			oldm->barwin = 0;
-			oldm->bh = 0;
+			if (oldm->dockwin == ev->window) {
+				cleardock(oldm);
+			} else {
+				oldm->barwin = 0;
+				oldm->bh = 0;
+			}
 			updatebarpos(oldm);
 			arrange(oldm);
 		}
@@ -1206,7 +1217,7 @@ destroynotify(XEvent *e)
 		unmanage(c, 1);
 	else if ((c = swallowingclient(ev->window)))
 		unmanage(c->swallowing, 1);
-	else if ((m = wintomon(ev->window)) && m->barwin == ev->window)
+	else if ((m = wintomon(ev->window)) && (m->barwin == ev->window || m->dockwin == ev->window))
 		unmanagealtbar(ev->window);
 	else if (m && m->traywin == ev->window)
 		unmanagetray(ev->window);
@@ -2030,14 +2041,20 @@ int
 isaltbar(Window win, XWindowAttributes *wa)
 {
 	Atom wtype;
+	int strut[4] = { 0, 0, 0, 0 };
 
 	if (wmclasscontains(win, altbarclass, ""))
 		return 1;
-	if (!wa || wa->width <= wa->height)
+	if (!wa)
 		return 0;
 
 	wtype = getwinatomprop(win, netatom[NetWMWindowType]);
-	return wtype == netatom[NetWMWindowTypeDock];
+	if (wtype != netatom[NetWMWindowTypeDock])
+		return 0;
+	if (wa->width > wa->height)
+		return 1;
+	/* A tall dock is a left or right dock only when it reserves that side. */
+	return getstrut(win, strut) && (strut[0] > 0 || strut[1] > 0);
 }
 
 int
@@ -2438,6 +2455,14 @@ propertynotify(XEvent *e)
 	}
 	if ((ev->window == root) && (ev->atom == XA_WM_NAME)) {
 		updatestatus();
+	} else if (ev->atom == netatom[NetWMStrutPartial] || ev->atom == netatom[NetWMStrut]) {
+		Monitor *m;
+		XWindowAttributes wa;
+
+		for (m = mons; m && m->dockwin != ev->window; m = m->next);
+		if (m && XGetWindowAttributes(dpy, ev->window, &wa)
+		    && updatealtbar(m, ev->window, &wa))
+			arrange(m);
 	} else if (ev->state == PropertyDelete) {
 		return; /* ignore */
 	} else if ((c = wintoclient(ev->window))) {
@@ -2763,21 +2788,32 @@ restackprioritywindows(void)
 	OverrideWindow *ow;
 	Window focused;
 
-	/* Raise order is the priority contract: always-on-top clients, bars and
-	 * trays, override popups, then real fullscreen clients above all shell
-	 * surfaces. */
+	/* Raise order is the priority contract: always-on-top clients, bars,
+	 * floating docks and trays, override popups, then real fullscreen
+	 * clients above all shell surfaces. A dock that reserves its space stays
+	 * in the stacking order like a window, so windows can cover it; one that
+	 * reserves nothing (auto-hide) floats over windows and stays above them.
+	 * A dock's own surface layer follows its dock. */
 	for (m = mons; m; m = m->next)
 		raisealwaysontopclients(m->stack);
 	for (m = mons; m; m = m->next)
 		if (!monitorhasfullscreen(m)) {
 			if (m->barwin)
 				XRaiseWindow(dpy, m->barwin);
+			if (m->dockwin && dockfloats(m))
+				XRaiseWindow(dpy, m->dockwin);
 			if (m->traywin)
 				XRaiseWindow(dpy, m->traywin);
 		}
-	for (ow = overridewindows; ow; ow = ow->next)
-		if (ow->raise)
+	for (ow = overridewindows; ow; ow = ow->next) {
+		if (!ow->raise)
+			continue;
+		if ((m = docklayermon(ow->win)) && !dockfloats(m)) {
+			XWindowChanges wc = { .sibling = m->dockwin, .stack_mode = Above };
+			XConfigureWindow(dpy, ow->win, CWSibling | CWStackMode, &wc);
+		} else
 			XRaiseWindow(dpy, ow->win);
+	}
 	for (m = mons; m; m = m->next)
 		raisefullscreenclients(m->stack);
 	if (XGetInputFocus(dpy, &focused, &revert))
@@ -3041,6 +3077,7 @@ scanaltbars(void)
 	for (m = mons; m; m = m->next) {
 		m->barwin = 0;
 		m->bh = 0;
+		cleardock(m);
 		updatebarpos(m);
 	}
 
@@ -4248,6 +4285,8 @@ setup(void)
 	netatom[NetWMDesktop] = XInternAtom(dpy, "_NET_WM_DESKTOP", False);
 	netatom[NetDwmMonitorDesktops] = XInternAtom(dpy, "_DWM_MONITOR_DESKTOPS", False);
 	netatom[NetDwmSelectedMonitor] = XInternAtom(dpy, "_DWM_SELECTED_MONITOR", False);
+	netatom[NetWMStrut] = XInternAtom(dpy, "_NET_WM_STRUT", False);
+	netatom[NetWMStrutPartial] = XInternAtom(dpy, "_NET_WM_STRUT_PARTIAL", False);
 	dwmfullscreenmonitorsatom = XInternAtom(dpy, "_DWM_FULLSCREEN_MONITORS", False);
 	dwmtagupdateatom = XInternAtom(dpy, "DWM_TAG_UPDATE", False);
 	/* init cursors */
@@ -4633,7 +4672,7 @@ togglebar(const Arg *arg)
 
 	selmon->showbar = selmon->pertag->showbars[selmon->pertag->curtag] = !selmon->showbar;
 	updatebarpos(selmon);
-	XMoveResizeWindow(dpy, selmon->barwin, selmon->wx, selmon->by, selmon->ww, selmon->bh);
+	XMoveResizeWindow(dpy, selmon->barwin, selmon->mx, selmon->by, selmon->mw, selmon->bh);
 	XMoveResizeWindow(dpy, selmon->traywin, selmon->tx, selmon->by, selmon->tw, selmon->bh);
 	arrange(selmon);
 }
@@ -4842,9 +4881,13 @@ unmanagealtbar(Window w)
 	if (!m)
 		return;
 
-	m->barwin = 0;
-	m->by = 0;
-	m->bh = 0;
+	if (m->dockwin == w) {
+		cleardock(m);
+	} else {
+		m->barwin = 0;
+		m->by = 0;
+		m->bh = 0;
+	}
 	updatebarpos(m);
 	arrange(m);
 	updateclientlist();
@@ -4879,7 +4922,7 @@ unmapnotify(XEvent *e)
 			setclientstate(c, WithdrawnState);
 		else
 			unmanage(c, 0);
-	} else if ((m = wintomon(ev->window)) && m->barwin == ev->window)
+	} else if ((m = wintomon(ev->window)) && (m->barwin == ev->window || m->dockwin == ev->window))
 		unmanagealtbar(ev->window);
 	else if (m && m->traywin == ev->window)
 		unmanagetray(ev->window);
@@ -4980,6 +5023,8 @@ updatebars(void)
 void
 updatebarpos(Monitor *m)
 {
+	m->wx = m->mx;
+	m->ww = m->mw;
 	m->wy = m->my;
 	m->wh = m->mh;
 	if (m->showbar) {
@@ -4988,18 +5033,126 @@ updatebarpos(Monitor *m)
 		m->wy = m->topbar ? m->wy + m->bh : m->wy;
 	} else
 		m->by = -m->bh;
+	if (!m->dockwin)
+		return;
+	/* Each side shrinks the client area inside what the bar left. */
+	if (m->dockl > 0 && m->dockl < m->ww) {
+		m->wx += m->dockl;
+		m->ww -= m->dockl;
+	}
+	if (m->dockr > 0 && m->dockr < m->ww)
+		m->ww -= m->dockr;
+	if (m->dockt > 0 && m->dockt < m->wh) {
+		m->wy += m->dockt;
+		m->wh -= m->dockt;
+	}
+	if (m->dockh > 0 && m->dockh < m->wh)
+		m->wh -= m->dockh;
+}
+
+/* A dock floats over windows when it reserves no more than a pixel. */
+int
+dockfloats(Monitor *m)
+{
+	return m->dockl + m->dockr + m->dockt + m->dockh <= 1;
+}
+
+/* The monitor whose dock this override window is the surface layer of: a
+ * window transient for the dock with the dock's own geometry. Menus and other
+ * popups of the dock have another size and keep their normal priority. */
+Monitor *
+docklayermon(Window win)
+{
+	Window trans;
+	XWindowAttributes wa, da;
+	Monitor *m;
+
+	if (!XGetTransientForHint(dpy, win, &trans))
+		return NULL;
+	for (m = mons; m && m->dockwin != trans; m = m->next);
+	if (!m || !XGetWindowAttributes(dpy, win, &wa)
+	    || !XGetWindowAttributes(dpy, trans, &da))
+		return NULL;
+	if (abs(wa.x - da.x) > 2 || abs(wa.y - da.y) > 2
+	    || abs(wa.width - da.width) > 2 || abs(wa.height - da.height) > 2)
+		return NULL;
+	return m;
+}
+
+void
+cleardock(Monitor *m)
+{
+	m->dockwin = 0;
+	m->dockl = m->dockr = m->dockt = m->dockh = 0;
+}
+
+/* Left, right, top and bottom strut of a dock window in pixels. Returns 0
+ * when the window declares none. */
+int
+getstrut(Window w, int strut[4])
+{
+	Atom props[2] = { netatom[NetWMStrutPartial], netatom[NetWMStrut] };
+	Atom actual;
+	int format, i, j, found = 0;
+	unsigned long nitems, extra;
+	unsigned char *data;
+
+	for (i = 0; i < 2 && !found; i++) {
+		data = NULL;
+		if (XGetWindowProperty(dpy, w, props[i], 0L, 12L, False, XA_CARDINAL,
+		    &actual, &format, &nitems, &extra, &data) == Success
+		    && actual == XA_CARDINAL && format == 32 && nitems >= 4) {
+			for (j = 0; j < 4; j++)
+				strut[j] = MAX(0, (int)((long *)data)[j]);
+			found = 1;
+		}
+		if (data)
+			XFree(data);
+	}
+	return found;
 }
 
 static int
 updatealtbar(Monitor *m, Window win, XWindowAttributes *wa)
 {
-	int changed, newbh, newtopbar;
+	int changed, newbh, newtopbar, isdock, strut[4] = { 0, 0, 0, 0 };
 
 	if (!m || !wa)
 		return 0;
 	if (wa->override_redirect)
 		return 0;
 
+	/* A dock never becomes the bar, so a panel and a dock can coexist. A
+	 * window is the dock when it sits in the lower half, spans most of the
+	 * monitor height (a left or right dock), or starts below the top edge
+	 * (a top dock under the bar); the bar is always flush with an edge. */
+	isdock = wa->height > m->mh / 2
+		|| wa->y + wa->height / 2 >= m->my + m->mh / 2
+		|| wa->y > m->my;
+	if (isdock) {
+		/* Struts are the space each side keeps, measured from the
+		 * monitor edge or, for a top dock, from under the bar. A dock in
+		 * the lower half without struts keeps its own height. */
+		if (!getstrut(win, strut) && wa->height <= m->mh / 2
+		    && wa->y + wa->height / 2 >= m->my + m->mh / 2)
+			strut[3] = wa->height;
+		changed = m->dockwin != win || m->dockl != strut[0] || m->dockr != strut[1]
+			|| m->dockt != strut[2] || m->dockh != strut[3];
+		if (m->barwin == win) {
+			m->barwin = 0;
+			m->bh = 0;
+			changed = 1;
+		}
+		m->dockwin = win;
+		m->dockl = strut[0];
+		m->dockr = strut[1];
+		m->dockt = strut[2];
+		m->dockh = strut[3];
+		updatebarpos(m);
+		return changed;
+	}
+	if (m->dockwin == win)
+		cleardock(m);
 	newtopbar = wa->y < m->my + m->mh / 2;
 	newbh = wa->height > 0 ? wa->height : bh;
 	changed = m->barwin != win || m->topbar != newtopbar || m->bh != newbh;
@@ -5023,6 +5176,8 @@ updateclientlist(void)
 	for (count = 0, m = mons; m; m = m->next) {
 		if (m->barwin)
 			count++;
+		if (m->dockwin)
+			count++;
 		if (m->traywin)
 			count++;
 		for (c = m->clients; c; c = c->next)
@@ -5034,6 +5189,9 @@ updateclientlist(void)
 		if (m->barwin && XGetWindowAttributes(dpy, m->barwin, &wa) &&
 		    !wa.override_redirect)
 			clients[index++] = m->barwin;
+		if (m->dockwin && XGetWindowAttributes(dpy, m->dockwin, &wa) &&
+		    !wa.override_redirect)
+			clients[index++] = m->dockwin;
 		if (m->traywin)
 			clients[index++] = m->traywin;
 		for (c = m->clients; c; c = c->next)
@@ -5579,7 +5737,7 @@ wintomon(Window w)
 	if (w == root && getrootptr(&x, &y))
 		return recttomon(x, y, 1, 1);
 	for (m = mons; m; m = m->next)
-		if (w == m->barwin || w == m->traywin)
+		if (w == m->barwin || w == m->dockwin || w == m->traywin)
 			return m;
 	if ((c = wintoclient(w)))
 		return c->mon;

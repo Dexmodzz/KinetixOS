@@ -8,6 +8,8 @@ RowLayout {
     id: root
 
     required property var desktopState
+    // The macOS layout shows running apps in the dock instead.
+    visible: Theme.styleBarLayout !== "macos"
     spacing: Theme.panelGap
 
     Repeater {

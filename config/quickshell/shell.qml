@@ -10,6 +10,7 @@ import qs.controlcenter
 import qs.controls
 import qs.core
 import qs.defaults
+import qs.dock
 import qs.health
 import qs.launcher
 import qs.network
@@ -1161,6 +1162,21 @@ ShellRoot {
         }
     }
 
+    DockSettings {
+        id: dockSettings
+    }
+
+    // The dock follows the style's dock = true until the user switches it
+    // on or off from Control Center > Bar Widgets.
+    LazyLoader {
+        active: dockSettings.enabled
+
+        Dock {
+            desktopState: dwmState
+            dockSettings: dockSettings
+        }
+    }
+
     NetworkWindow {
         networkModel: networkModel
         panelWindow: root.activePanelWindow
@@ -1187,6 +1203,7 @@ ShellRoot {
 
     ControlCenterWindow {
         controlCenterModel: controlCenterModel
+        dockSettings: dockSettings
         launcherModel: launcherModel
         panelWindow: root.activePanelWindow
         powerMenuModel: powerMenuModel

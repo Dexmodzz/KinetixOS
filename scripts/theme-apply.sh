@@ -1325,6 +1325,71 @@ if [[ $RUNTIME_ONLY == 0 && $TRANSACTIONAL_APPLY == 0 ]] &&
 		XCURSOR_SIZE="$CURSOR_SIZE" 2>/dev/null || true
 fi
 
+# A style with gtk_css = true owns one marked block in each gtk.css: the
+# theme accent and the style's control radius for GTK3 and GTK4/libadwaita.
+# Like the Picom block it is derived from the active theme alone, so it is
+# written for such styles and removed for every other theme.
+readonly GTK_CSS_BEGIN='/* kinetixos style css begin */'
+readonly GTK_CSS_END='/* kinetixos style css end */'
+gtk_css_block() {
+	local style accent radius
+	style=$(theme_get style)
+	[[ $style =~ ^[A-Za-z0-9._-]{1,505}$ ]] || return 0
+	[[ $(toml_get "style.$style" gtk_css "$THEMES_FILE") == true ]] || return 0
+	accent=$(theme_get selbordercolor)
+	[[ $accent =~ ^#[0-9A-Fa-f]{6}$ ]] || return 0
+	radius=$(toml_get "style.$style" control_radius "$THEMES_FILE")
+	[[ $radius =~ ^[0-9]{1,2}$ ]] || radius=8
+	printf '%s\n' "$GTK_CSS_BEGIN" \
+		"@define-color accent_color $accent;" \
+		"@define-color accent_bg_color $accent;" \
+		"@define-color accent_fg_color #FFFFFF;" \
+		"@define-color theme_selected_bg_color $accent;" \
+		"button, entry, spinbutton { border-radius: ${radius}px; }" \
+		"$GTK_CSS_END"
+}
+
+gtk_css_apply() {
+	local file=$1 block=$2 current='' kept tmp
+	if [[ -L $file ]]; then
+		echo "theme-apply: $file is a symlink; GTK theme CSS left unchanged" >&2
+		return 0
+	fi
+	[[ -f $file ]] && current=$(<"$file")
+	[[ -n $block || $current == *"$GTK_CSS_BEGIN"* ]] || return 0
+	kept=$(printf '%s\n' "$current" | awk -v b="$GTK_CSS_BEGIN" -v e="$GTK_CSS_END" '
+		$0 == b { skip = 1; next }
+		$0 == e { skip = 0; next }
+		!skip')
+	# Trailing blank lines belong to neither the user nor the block.
+	kept=$(printf '%s' "$kept" | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}')
+	if [[ -n $block && -f $file && $current != *"$GTK_CSS_BEGIN"* &&
+		! -e $file.kinetixos-backup ]]; then
+		cp -p -- "$file" "$file.kinetixos-backup"
+	fi
+	if [[ -z $kept && -z $block ]]; then
+		rm -f -- "$file"
+		return 0
+	fi
+	mkdir -p -- "$(dirname -- "$file")"
+	tmp=$(mktemp "$file.XXXXXX")
+	{
+		[[ -z $kept ]] || printf '%s\n' "$kept"
+		[[ -z $kept || -z $block ]] || printf '\n'
+		[[ -z $block ]] || printf '%s\n' "$block"
+	} >"$tmp"
+	mv -f -- "$tmp" "$file"
+}
+
+if [[ $TRANSACTIONAL_APPLY == 0 && $RUNTIME_ONLY == 0 ]]; then
+	GTK_CSS=$(gtk_css_block)
+	for gtk_css_file in "${XDG_CONFIG_HOME:-$HOME/.config}/gtk-3.0/gtk.css" \
+		"${XDG_CONFIG_HOME:-$HOME/.config}/gtk-4.0/gtk.css"; do
+		gtk_css_apply "$gtk_css_file" "$GTK_CSS" ||
+			echo "theme-apply: GTK theme CSS was not applied to $gtk_css_file" >&2
+	done
+fi
+
 # Opacity is global. Reapply the current configuration without writing it into
 # theme transactions or their rollback archives. A stopped compositor stays stopped.
 # A theme with a style profile also owns one marked block (corners and shadows)
@@ -1339,6 +1404,9 @@ picom_style_args() {
 		[[ $raw =~ ^[0-9]{1,3}$ ]] || return 0
 		printf '%s\n' "$raw"
 	done
+	# Optional sixth value: blur behind shell surfaces.
+	[[ $(toml_get "style.$style" blur "$THEMES_FILE") == true ]] && printf '1\n'
+	return 0
 }
 if [[ $TRANSACTIONAL_APPLY == 0 && -n ${DISPLAY:-} ]] && command -v picom &>/dev/null; then
 	PICOM_HELPER=${DWM_APPEARANCE_PICOM_HELPER:-$script_dir/dwm-settings-picom}
@@ -1346,7 +1414,7 @@ if [[ $TRANSACTIONAL_APPLY == 0 && -n ${DISPLAY:-} ]] && command -v picom &>/dev
 		picom_reload=1
 		if [[ $RUNTIME_ONLY == 0 ]]; then
 			mapfile -t PICOM_STYLE_ARGS < <(picom_style_args)
-			((${#PICOM_STYLE_ARGS[@]} == 5)) || PICOM_STYLE_ARGS=()
+			((${#PICOM_STYLE_ARGS[@]} == 5 || ${#PICOM_STYLE_ARGS[@]} == 6)) || PICOM_STYLE_ARGS=()
 			if picom_style_output=$("$PICOM_HELPER" apply-theme-style "${PICOM_STYLE_ARGS[@]}" 2>&1); then
 				# A published change already restarted a running compositor.
 				[[ $picom_style_output != *'. Backup: '* ]] || picom_reload=0

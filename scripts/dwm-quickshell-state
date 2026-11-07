@@ -21,7 +21,9 @@ clean_line() {
 
 root_property_value() {
 	prop=$1
-	xprop -root "$prop" 2>/dev/null | sed -n 's/^[^=]*= //p'
+	# xprop prints most values as "NAME(TYPE) = value", but window lists
+	# such as _NET_CLIENT_LIST as "NAME(WINDOW): window id # 0x1, 0x2".
+	xprop -root "$prop" 2>/dev/null | sed -n 's/^[^=]*= //p;t;s/^[^:]*):[[:space:]]*//p'
 }
 
 compositor_active() {
@@ -89,7 +91,10 @@ occupied_workspaces() {
 		tr ',' '\n' |
 		while IFS= read -r window_id; do
 			window_id=$(printf '%s\n' "$window_id" | awk '{ print $NF }')
-			[ -n "$window_id" ] || continue
+			case $window_id in
+			0x*) ;;
+			*) continue ;;
+			esac
 			xprop -id "$window_id" _NET_WM_DESKTOP 2>/dev/null |
 				awk -F'= ' '$2 ~ /^[0-9]+$/ && $2 != 4294967295 { print $2 }'
 		done |
@@ -111,7 +116,10 @@ running_apps() {
 		tr ',' '\n' |
 		while IFS= read -r window_id; do
 			window_id=$(printf '%s\n' "$window_id" | awk '{ print $NF }')
-			[ -n "$window_id" ] || continue
+			case $window_id in
+			0x*) ;;
+			*) continue ;;
+			esac
 			pid=$(xprop -id "$window_id" _NET_WM_PID 2>/dev/null | awk -F'= ' '$2 ~ /^[0-9]+$/ { print $2; exit }')
 			if [ -n "$pid" ] && [ "$(ps -o uid= -p "$pid" 2>/dev/null | awk '{ print $1 }')" = 0 ]; then
 				continue
@@ -125,6 +133,32 @@ running_apps() {
 			printf '%s:%s\n' "$window_id" "$class"
 		done |
 		paste -sd '|' -
+}
+
+# Desktops each app has windows on: "class:0,2|class2:1". Sticky windows
+# (on every desktop) are left out.
+app_desktops() {
+	root_property_value _NET_CLIENT_LIST |
+		tr ',' '\n' |
+		while IFS= read -r window_id; do
+			window_id=$(printf '%s\n' "$window_id" | awk '{ print $NF }')
+			case $window_id in
+			0x*) ;;
+			*) continue ;;
+			esac
+			class=$(window_class "$window_id" || true)
+			[ -n "$class" ] || continue
+			desktop=$(xprop -id "$window_id" _NET_WM_DESKTOP 2>/dev/null |
+				awk -F'= ' '$2 ~ /^[0-9]+$/ && $2 != 4294967295 { print $2 }')
+			[ -n "$desktop" ] || continue
+			printf '%s\t%s\n' "$class" "$desktop"
+		done |
+		sort -u |
+		awk -F'\t' '
+			!($1 in list) { order[n++] = $1 }
+			{ list[$1] = ($1 in list) ? list[$1] "," $2 : $2 }
+			END { for (i = 0; i < n; i++) printf "%s%s:%s", (i ? "|" : ""), order[i], list[order[i]] }
+		'
 }
 
 window_title() {
@@ -176,6 +210,7 @@ show_state() {
 	occupied=$(occupied_workspaces)
 	fullscreen_monitors=$(fullscreen_monitors)
 	apps=$(running_apps)
+	app_desktops=$(app_desktops)
 	monitor_desktops=$(
 		root_property_value _DWM_MONITOR_DESKTOPS |
 			tr -d '[:space:]'
@@ -191,6 +226,7 @@ show_state() {
 	printf 'occupied=%s\n' "$occupied"
 	printf 'fullscreen_monitors=%s\n' "$fullscreen_monitors"
 	printf 'apps=%s\n' "$apps"
+	printf 'app_desktops=%s\n' "$app_desktops"
 	printf 'active_window=%s\n' "$window_id"
 	printf 'title=%s\n' "$title"
 	printf 'class=%s\n' "$class"
@@ -288,6 +324,104 @@ focus_window() {
 	wmctrl -ia "$target"
 }
 
+# Close an app: send WM_DELETE_WINDOW to every client window that shares the
+# target window's WM_CLASS class, the same request dwm sends when a window is
+# closed from the keyboard, so the app can still confirm unsaved work.
+close_app() {
+	target=${1:-}
+	case $target in
+	0x[0-9a-fA-F]* | [0-9]*) ;;
+	*)
+		printf 'usage: %s close <window-id>\n' "$0" >&2
+		return 2
+		;;
+	esac
+	command -v python3 >/dev/null 2>&1 || {
+		printf 'python3 is required to close windows\n' >&2
+		return 127
+	}
+	python3 - "$target" <<'PY'
+import ctypes
+import ctypes.util
+import sys
+
+x11 = ctypes.cdll.LoadLibrary(ctypes.util.find_library("X11") or "libX11.so.6")
+x11.XOpenDisplay.restype = ctypes.c_void_p
+x11.XOpenDisplay.argtypes = [ctypes.c_char_p]
+x11.XDefaultRootWindow.restype = ctypes.c_ulong
+x11.XDefaultRootWindow.argtypes = [ctypes.c_void_p]
+x11.XInternAtom.restype = ctypes.c_ulong
+x11.XInternAtom.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_int]
+x11.XGetWindowProperty.argtypes = [
+    ctypes.c_void_p, ctypes.c_ulong, ctypes.c_ulong, ctypes.c_long, ctypes.c_long,
+    ctypes.c_int, ctypes.c_ulong, ctypes.POINTER(ctypes.c_ulong), ctypes.POINTER(ctypes.c_int),
+    ctypes.POINTER(ctypes.c_ulong), ctypes.POINTER(ctypes.c_ulong), ctypes.POINTER(ctypes.c_void_p)]
+x11.XSendEvent.argtypes = [ctypes.c_void_p, ctypes.c_ulong, ctypes.c_int, ctypes.c_long, ctypes.c_void_p]
+x11.XFree.argtypes = [ctypes.c_void_p]
+x11.XFlush.argtypes = [ctypes.c_void_p]
+x11.XCloseDisplay.argtypes = [ctypes.c_void_p]
+
+
+class ClientMessage(ctypes.Structure):
+    _fields_ = [("type", ctypes.c_int), ("serial", ctypes.c_ulong), ("send_event", ctypes.c_int),
+                ("display", ctypes.c_void_p), ("window", ctypes.c_ulong),
+                ("message_type", ctypes.c_ulong), ("format", ctypes.c_int),
+                ("data", ctypes.c_long * 5)]
+
+
+class Event(ctypes.Union):
+    _fields_ = [("xclient", ClientMessage), ("pad", ctypes.c_long * 24)]
+
+
+dpy = x11.XOpenDisplay(None)
+if not dpy:
+    sys.exit("cannot open the X display")
+
+
+def prop(win, name, kind):
+    actual, fmt = ctypes.c_ulong(), ctypes.c_int()
+    count, after, data = ctypes.c_ulong(), ctypes.c_ulong(), ctypes.c_void_p()
+    if x11.XGetWindowProperty(dpy, win, x11.XInternAtom(dpy, name, 0), 0, 4096, 0, kind,
+                              ctypes.byref(actual), ctypes.byref(fmt), ctypes.byref(count),
+                              ctypes.byref(after), ctypes.byref(data)) != 0 or not data.value:
+        return None, 0
+    return data, count.value
+
+
+def wm_class(win):
+    data, count = prop(win, b"WM_CLASS", 31)  # XA_STRING
+    if data is None:
+        return ""
+    raw = ctypes.string_at(data, count)
+    x11.XFree(data)
+    parts = raw.split(b"\0")
+    return (parts[1] if len(parts) > 1 else parts[0]).decode("utf-8", "replace")
+
+
+target = int(sys.argv[1], 0)
+cls = wm_class(target)
+root = x11.XDefaultRootWindow(dpy)
+data, count = prop(root, b"_NET_CLIENT_LIST", 33)  # XA_WINDOW
+windows = list(ctypes.cast(data, ctypes.POINTER(ctypes.c_ulong))[:count]) if data else []
+if data:
+    x11.XFree(data)
+victims = [w for w in windows if w == target or (cls and wm_class(w) == cls)] or [target]
+protocols = x11.XInternAtom(dpy, b"WM_PROTOCOLS", 0)
+delete = x11.XInternAtom(dpy, b"WM_DELETE_WINDOW", 0)
+for win in victims:
+    event = Event()
+    event.xclient.type = 33  # ClientMessage
+    event.xclient.window = win
+    event.xclient.message_type = protocols
+    event.xclient.format = 32
+    event.xclient.data[0] = delete
+    event.xclient.data[1] = 0  # CurrentTime
+    x11.XSendEvent(dpy, win, 0, 0, ctypes.byref(event))
+x11.XFlush(dpy)
+x11.XCloseDisplay(dpy)
+PY
+}
+
 case ${1:-state} in
 state)
 	show_state
@@ -301,8 +435,11 @@ switch)
 focus)
 	focus_window "${2:-}"
 	;;
+close)
+	close_app "${2:-}"
+	;;
 *)
-	printf 'usage: %s [state|watch|switch <zero-based-workspace>|focus <window-id>]\n' "$0" >&2
+	printf 'usage: %s [state|watch|switch <zero-based-workspace>|focus <window-id>|close <window-id>]\n' "$0" >&2
 	exit 2
 	;;
 esac

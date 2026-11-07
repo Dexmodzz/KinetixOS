@@ -233,6 +233,8 @@ home="$work/home"
 mkdir -p "$home/.config/kinetixos" "$home/.local/share/kinetixos/config"
 cp "$repo_dir/config/hotkeys.toml" "$home/.config/kinetixos/hotkeys.toml"
 cp "$repo_dir/config/themes.toml" "$home/.config/kinetixos/themes.toml"
+# The classic layout checks run against a Nord-active copy of the shipped themes.
+sed -i 's/^theme = "macos-tahoe"   #/theme = "nord"   #/' "$home/.config/kinetixos/themes.toml"
 cp "$repo_dir/config/window-rules.toml" "$home/.config/kinetixos/window-rules.toml"
 cp "$repo_dir/config/"*.toml "$home/.local/share/kinetixos/config/"
 sed -i '/^rules = \[/a\  { class="DwmXvfbTerminal", isterminal=1 },' \
